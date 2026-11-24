@@ -3,7 +3,18 @@
 import { config } from './config.js'
 
 export async function llmJson<T>(system: string, user: string, maxTokens = 700): Promise<T> {
-  const res = await fetch(`${config.llm.baseUrl}/chat/completions`, {
+  let res = await chat(system, user, maxTokens, true)
+  // Some providers reject response_format; the prompt already asks for JSON, so retry without it.
+  if (res.status === 400 || res.status === 422) res = await chat(system, user, maxTokens, false)
+  if (!res.ok) throw new Error(`LLM ${res.status}: ${(await res.text()).slice(0, 300)}`)
+  const data = (await res.json()) as { choices: Array<{ message: { content: string } }> }
+  const text = data.choices[0]?.message.content ?? '{}'
+  const json = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)
+  return JSON.parse(json || '{}') as T
+}
+
+function chat(system: string, user: string, maxTokens: number, jsonMode: boolean) {
+  return fetch(`${config.llm.baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${config.llm.apiKey}`,
@@ -15,17 +26,13 @@ export async function llmJson<T>(system: string, user: string, maxTokens = 700):
       model: config.llm.model,
       temperature: 0.2,
       max_tokens: maxTokens,
-      response_format: { type: 'json_object' },
+      ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
       messages: [
         { role: 'system', content: system },
-        { role: 'user', content: user },
+        { role: 'user', content: `${user}\n\nReply with JSON only.` },
       ],
     }),
   })
-  if (!res.ok) throw new Error(`LLM ${res.status}: ${(await res.text()).slice(0, 300)}`)
-  const data = (await res.json()) as { choices: Array<{ message: { content: string } }> }
-  const text = data.choices[0]?.message.content ?? '{}'
-  return JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, '')) as T
 }
 
 /** Cut to a hard character limit on a word boundary, so nothing overflows the 576 px line. */

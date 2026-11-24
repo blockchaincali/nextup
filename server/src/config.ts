@@ -23,9 +23,9 @@ export const config = {
     apiId: Number(env('TELEGRAM_API_ID', '0')),
     apiHash: env('TELEGRAM_API_HASH'),
   },
-  /** LLM via OpenRouter (OpenAI-compatible). */
+  /** Any OpenAI-compatible chat API: OpenRouter (default), Orbio, OpenAI, Groq… */
   llm: {
-    apiKey: env('OPENROUTER_API_KEY'),
+    apiKey: env('LLM_API_KEY') || env('OPENROUTER_API_KEY'),
     baseUrl: env('LLM_BASE_URL', 'https://openrouter.ai/api/v1'),
     model: env('LLM_MODEL', 'openai/gpt-4o-mini'),
   },

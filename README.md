@@ -67,7 +67,7 @@ Copy `server/.env.example` to `server/.env` and fill in what you have. Each inte
 |---|---|---|
 | `GOOGLE_CLIENT_ID` / `_SECRET` | Google Cloud console → APIs & Services. Enable the Calendar and Gmail APIs, create an OAuth client of type "Web application", and set the redirect URI to `{PUBLIC_URL}/auth/google/callback`. While the app is in testing, add yourself as a test user. | Demo data only |
 | `TELEGRAM_API_ID` / `_HASH` | my.telegram.org → API development tools | Email-only briefs and follow-ups |
-| `OPENROUTER_API_KEY` | openrouter.ai | Rule-based drafts and plain-text briefs |
+| `LLM_API_KEY` (+ `LLM_BASE_URL`, `LLM_MODEL`) | Any OpenAI-compatible API: OpenRouter (default), Orbio, OpenAI | Rule-based drafts and plain-text briefs |
 | `STT_API_KEY` | Groq or OpenAI (any `/audio/transcriptions` endpoint) | Type on the phone instead of speaking |
 
 Google sign-in can't run inside the glasses WebView, so the user pairs on their phone instead. The glasses show a 6-digit code, the phone opens `/pair`, and accounts are connected from that page.
