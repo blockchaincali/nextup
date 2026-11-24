@@ -39,7 +39,14 @@ export async function makeDrafts(input: FollowUpInput): Promise<Draft[]> {
       console.warn('[followup] LLM failed, using rules:', (e as Error).message)
     }
   }
-  plan ??= rulePlan(transcript, meeting, now, timeZone, sources.myName())
+  const rules = rulePlan(transcript, meeting, now, timeZone, sources.myName())
+  if (!plan) plan = rules
+  else if (!plan.message?.body || wordCount(coreOf(plan.message.body)) < 6) {
+    // The model returned a greeting and little else: keep its invite and
+    // reminders, but use the rule-written recap so nothing hollow gets sent.
+    console.warn('[followup] LLM message too thin, using rule-written recap')
+    plan = { ...plan, message: { ...(plan.message ?? {}), body: rules.message!.body, sendAt: plan.message?.sendAt ?? null } }
+  }
 
   const drafts: Draft[] = []
   const lastThread = ctx.mail[0]
@@ -201,7 +208,7 @@ Return JSON:
  "reminders": [{"title": "...", "start": "YYYY-MM-DDTHH:mm"}]
 }
 Rules:
-- message: a short, warm recap to the person they met, in the user's voice. Max 60 words. Greeting with their first name, then the commitments with their days, then a sign-off${myName ? ` with "${myName}"` : ''}. No placeholders. Never claim something is attached.
+- message: a complete, ready-to-send recap to the person they met, in the user's voice: a greeting line with their first name, then 1-3 full sentences that thank them and state every commitment with its day, then a sign-off. 25-60 words. The body must never be just a greeting${myName ? ` with "${myName}"` : ''}. No placeholders. Never claim something is attached.
 - If the user promises to send something later ("send him the quote Friday"), the message says when it will come, and add a reminder for the user at 09:00 that day titled like "Send Daniel the revised quote".
 - invite: only if the user asks to book, schedule, meet, call or check in again. Default 10:00, 30 minutes, unless they say otherwise. Title like "Harbor Studio · phase 2 check-in".
 - sendAt: only if the user explicitly wants the message itself sent later; otherwise null.
@@ -288,6 +295,10 @@ function sentence(s: string) {
   const t = s.trim()
   if (!t) return t
   return `${t[0]!.toUpperCase()}${t.slice(1)}${/[.!?]$/.test(t) ? '' : '.'}`
+}
+
+function wordCount(s: string) {
+  return s.split(/\s+/).filter(Boolean).length
 }
 
 function weekday(d: Date, timeZone: string) {

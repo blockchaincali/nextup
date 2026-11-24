@@ -52,6 +52,7 @@ export class NextUp {
   index = 0
   session: Session | null = null
   private timers: Array<ReturnType<typeof setTimeout>> = []
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null
   private busy = false
 
   constructor(private d: Deps) {}
@@ -75,6 +76,8 @@ export class NextUp {
   stop() {
     for (const t of this.timers) clearTimeout(t)
     this.timers = []
+    if (this.refreshTimer) clearTimeout(this.refreshTimer)
+    this.refreshTimer = null
   }
 
   /** Called when the app comes back to the foreground. */
@@ -120,8 +123,11 @@ export class NextUp {
     this.scheduleRefresh()
   }
 
+  /** Exactly one refresh timer at a time, however often meetings are reloaded. */
   private scheduleRefresh() {
-    this.later(() => {
+    if (this.refreshTimer) clearTimeout(this.refreshTimer)
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = null
       if (this.mode.kind === 'list') void this.loadMeetings(true).catch(() => this.scheduleRefresh())
       else this.scheduleRefresh()
     }, REFRESH_MS)

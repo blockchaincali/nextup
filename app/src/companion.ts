@@ -102,7 +102,7 @@ export function mountCompanion() {
         status.textContent = `${n} meeting${n === 1 ? '' : 's'} today`
       }
       if (event === 'heard') $('heard').textContent = `Heard: “${String(detail)}”`
-      log(`${event}${detail && event !== 'meetings' ? ` ${JSON.stringify(detail).slice(0, 200)}` : ''}`)
+      if (event !== 'meetings') log(`${event}${detail ? ` ${JSON.stringify(detail).slice(0, 200)}` : ''}`)
     },
   }
 }

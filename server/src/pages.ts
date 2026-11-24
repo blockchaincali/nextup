@@ -112,7 +112,7 @@ ${notice ? `<p class="err">${esc(notice)}</p>` : ''}
 ${
   v.demo
     ? `<div class="card"><div class="row"><strong>Demo outbox</strong><a href="/connect">Refresh</a></div>
-${v.outbox.length ? v.outbox.map((o) => `<p><span class="muted">${new Date(o.at).toLocaleTimeString()}</span><br><pre>${esc(o.what)}</pre></p>`).join('') : '<p class="muted">Nothing sent yet. Approve a draft on the glasses.</p>'}</div>`
+${v.outbox.length ? v.outbox.map((o) => `<p><span class="muted">${esc(new Date(o.at).toLocaleTimeString('en-US', { timeZone: v.timeZone }))}</span><br><pre>${esc(o.what)}</pre></p>`).join('') : '<p class="muted">Nothing sent yet. Approve a draft on the glasses.</p>'}</div>`
     : ''
 }
 <div class="card">
