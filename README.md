@@ -74,7 +74,7 @@ Google sign-in can't run inside the glasses WebView, so the user pairs on their 
 
 ## Deploy (Railway)
 
-1. Create a service from this repo with **Root Directory** `server`. Use build command `npm install && npm run build` and start command `npm start`.
+1. Create a service from this repo and set **Settings → Source → Root Directory** to `/server`. Build, start and health-check settings come from `server/railway.json`.
 2. Add a volume mounted at `/data`, and set `DATA_FILE=/data/store.json`.
 3. Set `PUBLIC_URL`, `SESSION_SECRET` and the keys above.
 4. In `app/app.json`, set the `network` whitelist to your server URL. Then build and pack the app:
