@@ -8,7 +8,7 @@
   "entrypoint": "index.html",
   "permissions": [
     { "name": "g2-microphone", "desc": "Hold to speak a follow-up after a meeting. Audio is transcribed and discarded." },
-    { "name": "network", "desc": "Talks to the Next Up server for briefs and follow-ups.", "whitelist": ["https://nextup-g2.up.railway.app"] }
+    { "name": "network", "desc": "Talks to the Next Up server for briefs and follow-ups.", "whitelist": ["https://nextup.up.railway.app"] }
   ],
   "supported_languages": ["en"]
 }
