@@ -22,6 +22,7 @@ export function pcmToWav(pcm: Buffer, sampleRate = 16_000): Buffer {
 
 export async function transcribe(pcm: Buffer): Promise<string> {
   if (pcm.length < 16_000) return '' // under half a second: treat as an accidental press
+  if (!config.stt.apiKey && config.stt.chatModel) return transcribeWithChat(pcm)
   const form = new FormData()
   form.append('file', new Blob([new Uint8Array(pcmToWav(pcm))], { type: 'audio/wav' }), 'note.wav')
   form.append('model', config.stt.model)
@@ -35,4 +36,35 @@ export async function transcribe(pcm: Buffer): Promise<string> {
   if (!res.ok) throw new Error(`Speech-to-text ${res.status}: ${(await res.text()).slice(0, 200)}`)
   const data = (await res.json()) as { text?: string }
   return (data.text ?? '').trim()
+}
+
+/**
+ * Transcribes through an audio-capable chat model on the LLM provider
+ * (OpenRouter-style `input_audio`), so one API key covers text and voice.
+ */
+async function transcribeWithChat(pcm: Buffer): Promise<string> {
+  const res = await fetch(`${config.llm.baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${config.llm.apiKey}`, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: config.stt.chatModel,
+      temperature: 0,
+      max_tokens: 300,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Transcribe this short voice note exactly, in English. Output only the words spoken, with no quotes or commentary. If nothing intelligible is said, output nothing.',
+            },
+            { type: 'input_audio', input_audio: { data: pcmToWav(pcm).toString('base64'), format: 'wav' } },
+          ],
+        },
+      ],
+    }),
+  })
+  if (!res.ok) throw new Error(`Speech-to-text (chat) ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  const data = (await res.json()) as { choices: Array<{ message: { content: string } }> }
+  return (data.choices[0]?.message.content ?? '').trim().replace(/^["“]|["”]$/g, '')
 }

@@ -34,6 +34,8 @@ export const config = {
     apiKey: env('STT_API_KEY'),
     baseUrl: env('STT_BASE_URL', 'https://api.groq.com/openai/v1'),
     model: env('STT_MODEL', 'whisper-large-v3-turbo'),
+    /** Or transcribe with an audio-capable chat model on the LLM provider (e.g. Orbio), no separate key. */
+    chatModel: env('STT_CHAT_MODEL'),
   },
   /** Seconds an approved action waits before it runs, so the user can undo it. */
   undoSeconds: Number(env('UNDO_SECONDS', '10')),
@@ -42,4 +44,4 @@ export const config = {
 export const hasGoogle = () => Boolean(config.google.clientId && config.google.clientSecret)
 export const hasTelegram = () => Boolean(config.telegram.apiId && config.telegram.apiHash)
 export const hasLlm = () => Boolean(config.llm.apiKey)
-export const hasStt = () => Boolean(config.stt.apiKey)
+export const hasStt = () => Boolean(config.stt.apiKey || (config.stt.chatModel && config.llm.apiKey))
