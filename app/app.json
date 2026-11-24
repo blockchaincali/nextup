@@ -1,0 +1,14 @@
+{
+  "package_id": "app.nextup.g2",
+  "edition": "202601",
+  "name": "Next Up",
+  "version": "0.1.0",
+  "min_app_version": "2.2.10",
+  "min_sdk_version": "0.0.16",
+  "entrypoint": "index.html",
+  "permissions": [
+    { "name": "g2-microphone", "desc": "Hold to speak a follow-up after a meeting. Audio is transcribed and discarded." },
+    { "name": "network", "desc": "Talks to the Next Up server for briefs and follow-ups.", "whitelist": ["https://nextup-g2.up.railway.app"] }
+  ],
+  "supported_languages": ["en"]
+}
