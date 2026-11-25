@@ -4,6 +4,9 @@ import { config, hasGoogle, hasLlm, hasStt, hasTelegram } from './config.js'
 import { Store } from './store.js'
 
 const store = new Store(config.dataFile)
+console.log(`[nextup] data: ${store.summary()}`)
+if (!config.dataFile.startsWith('/data/') && process.env.RAILWAY_ENVIRONMENT)
+  console.warn('[nextup] DATA_FILE is not on the /data volume: accounts will be lost on every redeploy.')
 const { app, queue } = createApp({ store })
 queue.start()
 

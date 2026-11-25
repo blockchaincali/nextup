@@ -23,8 +23,8 @@ export class Store {
     if (file) {
       try {
         this.data = { ...empty(), ...JSON.parse(readFileSync(file, 'utf8')) }
-      } catch {
-        /* first run */
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') console.error(`[store] could not read ${file}:`, (e as Error).message)
       }
     }
   }
@@ -44,6 +44,11 @@ export class Store {
     const tmp = `${this.file}.tmp`
     writeFileSync(tmp, JSON.stringify(this.data))
     renameSync(tmp, this.file)
+  }
+
+  /** One line for the startup log, so a lost data file is obvious after a redeploy. */
+  summary(): string {
+    return `${this.file ?? '(memory only)'}: ${Object.keys(this.data.users).length} users, ${Object.keys(this.data.devices).length} devices`
   }
 
   // ── devices and pairing ──────────────────────────────────────────────

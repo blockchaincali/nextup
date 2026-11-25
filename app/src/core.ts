@@ -23,7 +23,7 @@ export interface Deps {
 
 type Mode =
   | { kind: 'boot' }
-  | { kind: 'pair'; code: string; url: string; expiresAt: number }
+  | { kind: 'pair'; code: string; url: string; expiresAt: number; phonePaired?: boolean }
   | { kind: 'list'; detail: boolean }
   | { kind: 'listening'; target: 'followup' | 'revise'; startedAt: number }
   | { kind: 'thinking'; label: string }
@@ -100,9 +100,15 @@ export class NextUp {
   private pollPairing() {
     this.later(async () => {
       if (this.mode.kind !== 'pair') return
-      if (this.d.now() > this.mode.expiresAt) return this.beginPairing()
-      const s = await this.d.api.pairStatus().catch(() => ({ linked: false }))
+      const s = await this.d.api.pairStatus().catch(() => ({ linked: false, paired: false }))
       if (s.linked) return this.loadMeetings()
+      if (s.paired && !this.mode.phonePaired) {
+        // The phone has the code; now it needs to connect an account.
+        this.mode = { ...this.mode, phonePaired: true }
+        this.draw()
+        this.d.notify?.('phonePaired')
+      }
+      if (!this.mode.phonePaired && this.d.now() > this.mode.expiresAt) return this.beginPairing()
       this.pollPairing()
     }, POLL_PAIR_MS)
   }
@@ -378,6 +384,12 @@ export function render(app: NextUp, now: number): Screen {
       return { header: 'NEXT UP', body: 'Loading your day…', footer: '' }
 
     case 'pair':
+      if (m.phonePaired)
+        return {
+          header: 'NEXT UP · ALMOST THERE',
+          body: 'Paired with your phone.\n\nNow on your phone, tap\nConnect Google, or choose\nUse demo data.',
+          footer: HINT('Waiting for your phone'),
+        }
       return {
         header: 'NEXT UP · CONNECT',
         body: `On your phone, open\n${m.url.replace(/^https?:\/\//, '')}\nand enter:\n\n${m.code.slice(0, 3)} ${m.code.slice(3)}`,

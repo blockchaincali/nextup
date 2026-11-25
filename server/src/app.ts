@@ -122,7 +122,8 @@ export function createApp(opts: AppOptions) {
 
   app.get('/api/pair/status', device, (req, res) => {
     const { user } = req as Authed
-    res.json({ linked: Boolean(user && isReady(user)), demo: user?.demo ?? false })
+    // paired: the phone entered the code; linked: an account (or demo data) is connected too.
+    res.json({ paired: Boolean(user), linked: Boolean(user && isReady(user)), demo: user?.demo ?? false })
   })
 
   app.post('/api/unpair', device, (req, res) => {

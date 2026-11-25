@@ -96,6 +96,10 @@ export function mountCompanion() {
         $('pair-code').textContent = `${p.code.slice(0, 3)} ${p.code.slice(3)}`
         status.textContent = 'Waiting for pairing'
       }
+      if (event === 'phonePaired') {
+        $('pair').hidden = true
+        status.textContent = 'Connect an account on your phone'
+      }
       if (event === 'meetings') {
         $('pair').hidden = true
         const n = (detail as { items: unknown[] }).items.length

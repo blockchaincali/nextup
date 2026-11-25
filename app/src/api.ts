@@ -61,7 +61,7 @@ export class Api {
   }
 
   pairStatus() {
-    return this.call<{ linked: boolean; demo: boolean }>('/api/pair/status')
+    return this.call<{ paired?: boolean; linked: boolean; demo: boolean }>('/api/pair/status')
   }
 
   meetings() {
