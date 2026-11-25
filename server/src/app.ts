@@ -147,6 +147,15 @@ export function createApp(opts: AppOptions) {
     res.json({ paired: Boolean(user), linked: Boolean(user && isReady(user)), demo: user?.demo ?? false })
   })
 
+  // Lets the browser running the glasses app open the account page as the same user,
+  // so accounts can be connected on a computer (e.g. to show a Telegram QR to scan).
+  app.post('/api/pair/handoff', device, (req, res) => {
+    const { user } = req as Authed
+    if (!user) return void res.status(409).json({ error: 'not_paired' })
+    const t = sign(`${user.id}:${Date.now() + 5 * 60_000}`)
+    res.json({ url: `${config.publicUrl}/connect/handoff?t=${encodeURIComponent(t)}` })
+  })
+
   app.post('/api/unpair', device, (req, res) => {
     store.unlinkDevice((req as Authed).device)
     res.json({ ok: true })
@@ -365,6 +374,14 @@ export function createApp(opts: AppOptions) {
     if (!u) res.redirect(303, '/pair')
     return u
   }
+
+  app.get('/connect/handoff', (req, res) => {
+    const [userId, until] = (unsign(String(req.query.t ?? '')) ?? '').split(':')
+    const u = store.user(userId)
+    if (!u || Number(until) < Date.now()) return void res.status(400).type('html').send(pairPage('That link expired. Open it again from the glasses app.'))
+    setSession(res, u.id)
+    res.redirect(303, '/connect')
+  })
 
   app.get('/connect', (req, res) => {
     const u = requireWeb(req, res)

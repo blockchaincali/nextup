@@ -25,6 +25,9 @@ export function mountCompanion() {
       <button data-input="swipeDown" type="button">Swipe ↓</button>
       <button id="hold" type="button">Hold to talk</button>
     </section>
+    <section id="here" class="card" hidden>
+      <p>Paired. <a id="here-link" class="btn-link" href="#">Connect accounts on this computer →</a> (Google, Telegram QR), or finish on your phone.</p>
+    </section>
     <section id="suggest" class="card" hidden>
       <label>Quick follow-ups</label>
       <div id="chips" class="chips"></div>
@@ -43,6 +46,12 @@ export function mountCompanion() {
   const status = $('status')
   const logEl = $('log')
   let typedHandler: (t: string) => unknown = () => {}
+  let handoffHandler: () => Promise<string> = async () => ''
+  $<HTMLAnchorElement>('here-link').addEventListener('click', async (e) => {
+    e.preventDefault()
+    const url = await handoffHandler().catch(() => '')
+    if (url) window.open(url, '_blank', 'noopener')
+  })
   let inputHandler: (i: Input) => unknown = () => {}
 
   $<HTMLFormElement>('type').addEventListener('submit', (e) => {
@@ -134,6 +143,9 @@ export function mountCompanion() {
     onInput(fn: (i: Input) => unknown) {
       inputHandler = fn
     },
+    onHandoff(fn: () => Promise<string>) {
+      handoffHandler = fn
+    },
     enablePreview() {
       $('gestures').hidden = false
       status.textContent = 'Browser preview'
@@ -159,10 +171,12 @@ export function mountCompanion() {
       }
       if (event === 'phonePaired') {
         $('pair').hidden = true
+        $('here').hidden = false
         status.textContent = 'Connect an account on your phone'
       }
       if (event === 'meetings') {
         $('pair').hidden = true
+        $('here').hidden = true
         const n = (detail as { items: unknown[] }).items.length
         status.textContent = `${n} meeting${n === 1 ? '' : 's'} today`
       }

@@ -291,5 +291,6 @@ if (bridge) {
   })
   companion.onTyped((t) => app.typed(t))
   companion.onInput((i) => app.input(i))
+  companion.onHandoff(async () => (await api.handoff()).url)
   await app.start()
 }

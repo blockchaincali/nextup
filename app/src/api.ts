@@ -69,6 +69,11 @@ export class Api {
     })
   }
 
+  /** A short-lived link that opens the account page in this browser as the paired user. */
+  handoff() {
+    return this.call<{ url: string }>('/api/pair/handoff', { method: 'POST' })
+  }
+
   pairStatus() {
     return this.call<{ paired?: boolean; linked: boolean; demo: boolean }>('/api/pair/status')
   }
