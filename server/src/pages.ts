@@ -194,7 +194,8 @@ export function telegramPage(step: 'phone' | 'code' | 'password', error = '', vi
 <label for="code">Login code</label>
 <input class="code" id="code" name="code" inputmode="numeric" required autofocus>`,
     password: `<input type="hidden" name="code" value="-">
-<label for="password">Your Telegram two-step verification password</label>
+<p class="muted">Your account has Two-Step Verification on. Use the password you set in Telegram under <strong>Settings → Privacy and Security → Two-Step Verification</strong>. Next Up doesn't store it.</p>
+<label for="password">Telegram password</label>
 <input id="password" name="password" type="password" required autofocus>`,
   }[step]
   const action = step === 'phone' ? '/connect/telegram/start' : '/connect/telegram/code'
@@ -222,7 +223,9 @@ export function telegramQrPage(qrDataUrl: string, link: string): string {
   <p class="muted" id="status">Waiting for Telegram…</p>
 </div>
 <form method="post" action="/connect/telegram/qr/password" id="pw" hidden>
-  <label for="password">Your Telegram two-step verification password</label>
+  <p class="ok">Scan accepted.</p>
+  <p class="muted">Your Telegram account has Two-Step Verification on, so Telegram asks for your password when a new device links. It's the one you set in Telegram under <strong>Settings → Privacy and Security → Two-Step Verification</strong> (forgot it? tap "Forgot password?" there). Next Up passes it to Telegram and doesn't store it.</p>
+  <label for="password">Telegram password</label>
   <input id="password" name="password" type="password" autocomplete="current-password">
   <p class="muted" id="hint"></p>
   <p><button type="submit">Continue</button></p>
