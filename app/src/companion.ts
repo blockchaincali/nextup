@@ -17,7 +17,7 @@ export function mountCompanion() {
       <div id="hud-footer" class="hud-dim"></div>
     </section>
     <section id="pair" class="card" hidden>
-      <p>Pair on this phone: <a id="pair-link" target="_blank" rel="noopener">open the pairing page</a>, then enter <strong id="pair-code"></strong>.</p>
+      <p><a id="pair-link" class="btn-link" target="_blank" rel="noopener">Connect your accounts →</a> (code <strong id="pair-code"></strong>, already filled in). Or enter it at the pairing page on your phone.</p>
     </section>
     <section id="gestures" class="card gestures" hidden>
       <button data-input="tap" type="button">Tap</button>
@@ -153,7 +153,7 @@ export function mountCompanion() {
       if (event === 'pair') {
         const p = detail as { code: string; pairUrl: string }
         $('pair').hidden = false
-        $<HTMLAnchorElement>('pair-link').href = p.pairUrl
+        $<HTMLAnchorElement>('pair-link').href = `${p.pairUrl}?code=${p.code}`
         $('pair-code').textContent = `${p.code.slice(0, 3)} ${p.code.slice(3)}`
         status.textContent = 'Waiting for pairing'
       }
@@ -201,6 +201,7 @@ function injectStyles() {
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chips button { margin: 0; background: transparent; color: #3CFA44; border: 1px solid #3CFA44; text-align: left; font-weight: 500; }
   a { color: #3CFA44; }
+  .btn-link { font-weight: 600; }
   .muted { color: #A7A7A7; font-size: 13px; }
   #log { white-space: pre-wrap; font-size: 12px; }`
   const style = document.createElement('style')

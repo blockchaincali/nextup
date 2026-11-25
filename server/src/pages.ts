@@ -76,8 +76,8 @@ export function landingPage(): string {
 <h1 aria-label="Know who you're meeting. Follow up before you reach the car."><span class="type" id="type" aria-hidden="true">Know who you're meeting.
 Follow up before you reach the car.</span><span class="caret" aria-hidden="true"></span></h1>
 <p class="muted">Next Up shows a one-glance brief on your Even G2 before an in-person meeting, then turns one spoken sentence into a follow-up email, invite and reminders you approve with a tap.</p>
-<div class="cta"><a class="btn" href="/try/?demo">Try the demo in your browser</a><a class="btn secondary" href="/pair">Pair my glasses</a></div>
-<p class="muted" style="font-size:14px">The demo uses sample meetings and sends nothing. <a href="/privacy">How we handle your data</a></p>
+<div class="cta"><a class="btn" href="/try/">Start with your Google account</a><a class="btn secondary" href="/try/?demo">Quick demo, no sign-in</a></div>
+<p class="muted" style="font-size:14px">Runs in your browser, or on Even G2 from the Even Hub. The quick demo uses sample meetings and sends nothing. <a href="/privacy">How we handle your data</a></p>
 </section>
 <figure class="hud" role="img" aria-label="Example brief on the glasses: Daniel Reyes from Harbor Studio, in 12 minutes. He last asked for a revised quote; you owe a timeline for phase 2.">
 <div class="dim">NEXT UP · IN 12 MIN · 14:00</div>
@@ -111,7 +111,7 @@ You owe: timeline for phase 2</div>
   )
 }
 
-export function pairPage(error = ''): string {
+export function pairPage(error = '', code = ''): string {
   return page(
     'Pair',
     `<h1>Pair your glasses</h1>
@@ -120,7 +120,7 @@ export function pairPage(error = ''): string {
 ${error ? `<p class="err">${esc(error)}</p>` : ''}
 <form method="post" action="/pair">
 <label for="code">Code from your glasses</label>
-<input class="code" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required autofocus>
+<input class="code" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required autofocus value="${esc(code.replace(/\D/g, '').slice(0, 6))}">
 <input type="hidden" name="tz" id="tz">
 <p><button type="submit">Pair</button></p>
 </form>

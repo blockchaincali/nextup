@@ -326,7 +326,7 @@ export function createApp(opts: AppOptions) {
   app.get('/favicon.ico', (_req, res) => res.redirect(301, '/favicon.svg'))
   app.get('/privacy', (_req, res) => res.type('html').send(privacyPage()))
   app.get('/health', (_req, res) => res.json({ ok: true }))
-  app.get('/pair', (_req, res) => res.type('html').send(pairPage()))
+  app.get('/pair', (req, res) => res.type('html').send(pairPage('', String(req.query.code ?? ''))))
 
   app.post('/pair', (req, res) => {
     if (limited(`pair:${req.ip}`, 10, 60_000)) return void res.status(429).type('html').send(pairPage('Too many tries. Wait a minute.'))
