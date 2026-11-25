@@ -116,6 +116,7 @@ export function pairPage(error = ''): string {
     'Pair',
     `<h1>Pair your glasses</h1>
 <p class="muted">Open Next Up on your G2. Enter the 6-digit code it shows.</p>
+<p class="muted" style="font-size:14px">No glasses? Open <a href="/try/" target="_blank" rel="noopener">the browser version</a> in another tab: it shows the code. Or <a href="/try/?demo">try the demo</a> with no pairing at all.</p>
 ${error ? `<p class="err">${esc(error)}</p>` : ''}
 <form method="post" action="/pair">
 <label for="code">Code from your glasses</label>
