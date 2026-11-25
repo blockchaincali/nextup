@@ -128,8 +128,9 @@ export async function listMeetings(user: User, save: (u: User) => void, from: Da
     if (e.eventType && e.eventType !== 'default' && e.eventType !== 'fromGmail') continue
     const me = e.attendees?.find((a) => a.self)
     if (me?.responseStatus === 'declined') continue
+    const myEmail = user.google?.email.toLowerCase()
     let others: Person[] = (e.attendees ?? [])
-      .filter((a) => !a.self && !a.email.endsWith('resource.calendar.google.com'))
+      .filter((a) => !a.self && a.email.toLowerCase() !== myEmail && !a.email.endsWith('resource.calendar.google.com'))
       .map((a) => ({ name: a.displayName || nameFromEmail(a.email), email: a.email }))
     let inferred = false
     if (others.length === 0) {

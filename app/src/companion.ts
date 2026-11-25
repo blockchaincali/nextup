@@ -56,19 +56,42 @@ export function mountCompanion() {
     b.addEventListener('click', () => void inputHandler(b.dataset.input as Input)),
   )
   const hold = $<HTMLButtonElement>('hold')
-  let holding = false
-  const release = () => {
-    if (!holding) return
-    holding = false
+  // Hold to talk, as on the glasses, or click once to start and again to stop
+  // (easier with a mouse, and survives Chrome's microphone permission prompt).
+  let recording = false
+  let toggled = false
+  let pressedAt = 0
+  const label = hold.textContent ?? 'Hold to talk'
+  const begin = () => {
+    recording = true
+    hold.classList.add('live')
+    hold.textContent = 'Listening… release or click'
+    void inputHandler('holdStart')
+  }
+  const end = () => {
+    if (!recording) return
+    recording = false
+    toggled = false
     hold.classList.remove('live')
+    hold.textContent = label
     void inputHandler('holdEnd')
   }
   hold.addEventListener('pointerdown', (e) => {
     e.preventDefault()
-    holding = true
-    hold.classList.add('live')
-    void inputHandler('holdStart')
+    if (recording && toggled) return end()
+    pressedAt = performance.now()
+    begin()
   })
+  const release = () => {
+    if (!recording || toggled) return
+    // A short press (or one cut short by the permission prompt) means "click to toggle".
+    if (performance.now() - pressedAt < 400) {
+      toggled = true
+      hold.textContent = 'Listening… click to stop'
+      return
+    }
+    end()
+  }
   hold.addEventListener('pointerup', release)
   hold.addEventListener('pointerleave', release)
   hold.addEventListener('pointercancel', release)
