@@ -43,15 +43,45 @@ interface PendingLogin {
 }
 const pending = new Map<string, PendingLogin>() // keyed by user id
 
-export async function startLogin(userId: string, phone: string): Promise<void> {
+/** Sends the login code. Returns where Telegram sent it. Errors carry a message fit for the user. */
+export async function startLogin(userId: string, phone: string): Promise<'app' | 'sms'> {
+  if (!/^\+\d{8,15}$/.test(phone)) throw new Error('Enter the full number with country code, like +2348012345678.')
   const client = newClient()
-  await client.connect()
-  const { phoneCodeHash } = await client.sendCode(
-    { apiId: config.telegram.apiId, apiHash: config.telegram.apiHash },
-    phone,
-  )
-  pending.get(userId)?.client.disconnect().catch(() => {})
-  pending.set(userId, { client, phone, phoneCodeHash, expiresAt: Date.now() + 10 * 60_000 })
+  try {
+    const sent = await withTimeout(
+      (async () => {
+        await client.connect()
+        return client.sendCode({ apiId: config.telegram.apiId, apiHash: config.telegram.apiHash }, phone)
+      })(),
+      25_000,
+    )
+    pending.get(userId)?.client.disconnect().catch(() => {})
+    pending.set(userId, { client, phone, phoneCodeHash: sent.phoneCodeHash, expiresAt: Date.now() + 10 * 60_000 })
+    console.log(`[telegram] code sent to ${phone.slice(0, 4)}…${phone.slice(-2)} via ${sent.isCodeViaApp ? 'app' : 'sms'}`)
+    return sent.isCodeViaApp ? 'app' : 'sms'
+  } catch (e) {
+    client.disconnect().catch(() => {})
+    const raw = (e as { errorMessage?: string; message?: string }).errorMessage ?? (e as Error).message ?? String(e)
+    console.error('[telegram] sendCode failed:', raw)
+    throw new Error(friendly(raw))
+  }
+}
+
+function friendly(raw: string): string {
+  if (raw === 'timeout') return 'Telegram did not answer in time. Try again in a minute.'
+  if (/PHONE_NUMBER_INVALID/.test(raw)) return 'Telegram says that number is not valid. Use the full international format, like +2348012345678.'
+  if (/API_ID_INVALID|API_ID_PUBLISHED_FLOOD/.test(raw)) return 'The server’s Telegram API keys were rejected. Check TELEGRAM_API_ID and TELEGRAM_API_HASH.'
+  const wait = raw.match(/FLOOD_WAIT_?(\d+)?|wait of (\d+) seconds/i)
+  if (wait) return `Telegram asks to wait${wait[1] || wait[2] ? ` ${Math.ceil(Number(wait[1] || wait[2]) / 60)} min` : ''} before sending another code.`
+  if (/PHONE_NUMBER_BANNED|PHONE_NUMBER_FLOOD/.test(raw)) return 'Telegram is refusing new logins for this number right now. Try again later.'
+  return `Telegram error: ${raw}`
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('timeout')), ms)
+    p.then((v) => (clearTimeout(t), resolve(v)), (e) => (clearTimeout(t), reject(e)))
+  })
 }
 
 /** Returns the session string, or 'password' when the account has two-step verification. */

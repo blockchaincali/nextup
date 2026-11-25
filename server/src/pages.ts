@@ -186,11 +186,12 @@ ${v.outbox.length ? v.outbox.map((o) => `<p><span class="muted">${esc(new Date(o
   )
 }
 
-export function telegramPage(step: 'phone' | 'code' | 'password', error = ''): string {
+export function telegramPage(step: 'phone' | 'code' | 'password', error = '', via: 'app' | 'sms' = 'app'): string {
   const fields = {
     phone: `<label for="phone">Phone number with country code</label>
 <input id="phone" name="phone" type="tel" placeholder="+234 800 000 0000" required autofocus>`,
-    code: `<label for="code">Login code Telegram just sent you</label>
+    code: `<p class="muted">${via === 'app' ? 'Telegram sent a login code to your Telegram app: open the chat named <strong>Telegram</strong> (blue tick).' : 'Telegram sent the login code by SMS.'} Don’t forward or screenshot it.</p>
+<label for="code">Login code</label>
 <input class="code" id="code" name="code" inputmode="numeric" required autofocus>`,
     password: `<input type="hidden" name="code" value="-">
 <label for="password">Your Telegram two-step verification password</label>

@@ -411,8 +411,8 @@ export function createApp(opts: AppOptions) {
       if (!u) return
       if (limited(`tg:${u.id}`, 5, 10 * 60_000)) return void res.type('html').send(telegramPage('phone', 'Too many tries. Wait a few minutes.'))
       try {
-        await telegram.startLogin(u.id, String(req.body.phone ?? '').replace(/[^\d+]/g, ''))
-        res.type('html').send(telegramPage('code'))
+        const via = await telegram.startLogin(u.id, String(req.body.phone ?? '').replace(/[^\d+]/g, ''))
+        res.type('html').send(telegramPage('code', '', via))
       } catch (e) {
         res.type('html').send(telegramPage('phone', (e as Error).message))
       }
