@@ -6,7 +6,7 @@ import { config, hasGoogle, hasStt, hasTelegram } from './config.js'
 import { demoLog } from './demo.js'
 import { makeDrafts, reviseDraft, toCard } from './followup.js'
 import * as google from './google.js'
-import { connectPage, landingPage, pairPage, privacyPage, telegramPage } from './pages.js'
+import { connectPage, landingPage, LOGO_SVG, pairPage, privacyPage, telegramPage } from './pages.js'
 import { sourcesFor } from './sources.js'
 import { id, Store } from './store.js'
 import { transcribe } from './stt.js'
@@ -288,6 +288,8 @@ export function createApp(opts: AppOptions) {
   // ── phone pages: pairing and connecting accounts ──────────────────────
 
   app.get('/', (_req, res) => res.type('html').send(landingPage()))
+  app.get(['/favicon.svg', '/logo.svg'], (_req, res) => res.type('image/svg+xml').set('cache-control', 'public, max-age=86400').send(LOGO_SVG))
+  app.get('/favicon.ico', (_req, res) => res.redirect(301, '/favicon.svg'))
   app.get('/privacy', (_req, res) => res.type('html').send(privacyPage()))
   app.get('/health', (_req, res) => res.json({ ok: true }))
   app.get('/pair', (_req, res) => res.type('html').send(pairPage()))
