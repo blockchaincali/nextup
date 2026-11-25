@@ -45,6 +45,12 @@ export function sourcesFor(user: User, save: (u: User) => void): Sources {
         const theirs = mail.find((m) => !m.fromMe && m.fromAddress)
         if (theirs?.fromAddress) person.email = theirs.fromAddress.email
       }
+      // The calendar often has no display name ("Terrafirmassociates" is just the
+      // address); their own emails usually do ("TerraFirm Associates").
+      if (person.email && person.name === google.nameFromEmail(person.email)) {
+        const named = mail.find((m) => m.fromAddress?.email === person.email?.toLowerCase() && m.fromAddress?.name)
+        if (named?.fromAddress) person.name = named.fromAddress.name
+      }
       return { mail, chat }
     },
     isFree: (start, end) => google.isFree(user, save, start, end),
