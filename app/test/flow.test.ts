@@ -65,7 +65,7 @@ test('first run shows a pairing code; the phone pairs and picks demo data', asyn
   const pair = await fetch(`${BASE}/pair`, { method: 'POST', body: new URLSearchParams({ code: code[1]! + code[2]!, tz: 'Africa/Lagos' }), redirect: 'manual' })
   const cookie = pair.headers.get('set-cookie')!.split(';')[0]!
   await until(() => last().header === 'NEXT UP · ALMOST THERE')
-  assert.match(last().body, /Connect Google/)
+  assert.match(last().body, /connect Google/)
   await fetch(`${BASE}/connect/demo`, { method: 'POST', headers: { cookie }, redirect: 'manual' })
 
   await until(() => last().body.startsWith('Daniel Reyes'))

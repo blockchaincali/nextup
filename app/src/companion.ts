@@ -172,7 +172,7 @@ export function mountCompanion() {
       if (event === 'phonePaired') {
         $('pair').hidden = true
         $('here').hidden = false
-        status.textContent = 'Connect an account on your phone'
+        status.textContent = 'Connect Google to see meetings'
       }
       if (event === 'meetings') {
         $('pair').hidden = true

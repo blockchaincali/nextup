@@ -425,8 +425,8 @@ export function render(app: NextUp, now: number): Screen {
       if (m.phonePaired)
         return {
           header: 'NEXT UP · ALMOST THERE',
-          body: 'Paired with your phone.\n\nNow on your phone, tap\nConnect Google, or choose\nUse demo data.',
-          footer: HINT('Waiting for your phone'),
+          body: 'Paired.\n\nNow connect Google (on your\nphone or computer), or choose\nUse demo data.\n\nMeetings come from Google Calendar.',
+          footer: HINT('Waiting for Google'),
         }
       return {
         header: 'NEXT UP · CONNECT',
