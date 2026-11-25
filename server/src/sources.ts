@@ -25,6 +25,8 @@ export interface Sources {
   /** Demo only: a hand-written brief, used when no LLM is configured. */
   cannedBrief?(meeting: Meeting): Partial<Brief> | undefined
   myName(): string
+  /** The user's own address, so their own company is never mistaken for the other side's. */
+  myEmail(): string
 }
 
 export function sourcesFor(user: User, save: (u: User) => void): Sources {
@@ -51,5 +53,6 @@ export function sourcesFor(user: User, save: (u: User) => void): Sources {
     sendEmail: (mail) => google.sendEmail(user, save, mail),
     sendTelegram: (person, text) => telegram.sendMessage(user, person, text),
     myName: () => (user.google ? google.nameFromEmail(user.google.email).split(' ')[0]! : ''),
+    myEmail: () => user.google?.email ?? '',
   }
 }

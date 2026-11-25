@@ -77,18 +77,24 @@ export async function buildBrief(sources: Sources, meeting: Meeting, timeZone: s
 
   if (hasLlm() && (ctx.mail.length || ctx.chat.length)) {
     try {
+      const me = sources.myEmail()
       const out = await llmJson<{ company?: string; last?: string; owe?: string; details?: string[] }>(
         BRIEF_SYSTEM,
-        `Meeting: ${meeting.title}${meeting.location ? `\nWhere: ${meeting.location}` : ''}${meeting.description ? `\nNotes on the event: ${meeting.description}` : ''}\nWhen: ${shortDate(start, timeZone)} ${base.time}\nWith: ${meeting.attendees
+        `The user (ME in the history) is ${sources.myName() || 'the account owner'}${me ? ` <${me}>` : ''}.\nMeeting: ${meeting.title}${meeting.location ? `\nWhere: ${meeting.location}` : ''}${meeting.description ? `\nNotes on the event: ${meeting.description}` : ''}\nWhen: ${shortDate(start, timeZone)} ${base.time}\nWith: ${meeting.attendees
           .map((a) => `${a.name}${a.email ? ` <${a.email}>` : ''}`)
           .join(', ')}\n\nHistory (newest first):\n${historyText(ctx, timeZone)}`,
       )
+      // Whatever the model leaves blank is filled from the messages themselves,
+      // so a brief is never empty when there is history.
+      const plain = plainSummary(ctx, timeZone)
+      const company = notMine(out.company?.trim() ?? '', me) || companyFromEmail(lead?.email)
+      const details = (out.details ?? []).map((d) => String(d).replace(/^[•\-\s]+/, '').trim()).filter(Boolean)
       return {
         ...base,
-        who: whoLine(meeting.attendees, out.company?.trim() || companyFromEmail(lead?.email)),
-        last: out.last ? fit(`Last: ${out.last.replace(/^last:\s*/i, '')}`, 40) : '',
-        owe: out.owe ? fit(out.owe, 40) : '',
-        details: (out.details ?? []).slice(0, 3).map((d) => fit(d.replace(/^[•\-\s]+/, ''), 36)),
+        who: whoLine(meeting.attendees, company),
+        last: out.last?.trim() ? fit(`Last: ${out.last.trim().replace(/^last:\s*/i, '')}`, 40) : plain.last,
+        owe: out.owe?.trim() ? fit(out.owe.trim(), 40) : plain.owe,
+        details: (details.length ? details : plain.details).slice(0, 3).map((d) => fit(d, 36)),
       }
     } catch (e) {
       console.warn('[brief] LLM failed, using plain summary:', (e as Error).message)
@@ -98,28 +104,39 @@ export async function buildBrief(sources: Sources, meeting: Meeting, timeZone: s
   return { ...base, ...plainSummary(ctx, timeZone) }
 }
 
-/** No LLM: show the latest message from them and when you last spoke. */
+/** No LLM (or blank fields): the latest messages, whoever sent them. */
 function plainSummary(ctx: Context, timeZone: string): Pick<Brief, 'last' | 'owe' | 'details'> {
-  const theirs = [
-    ...ctx.mail.filter((m) => !m.fromMe).map((m) => ({ date: m.date, text: m.snippet })),
-    ...ctx.chat.filter((c) => !c.fromMe).map((c) => ({ date: c.date, text: c.text })),
+  const all = [
+    ...ctx.mail.map((m) => ({ date: m.date, mine: m.fromMe, text: m.snippet })),
+    ...ctx.chat.map((c) => ({ date: c.date, mine: c.fromMe, text: c.text })),
   ].sort((a, b) => b.date.getTime() - a.date.getTime())
-  const latest = theirs[0]
-  if (!latest) return { last: 'No messages with them yet', owe: '', details: [] }
+  if (!all.length) return { last: 'No messages with them yet', owe: '', details: [] }
+  const line = (m: (typeof all)[number]) => `${m.mine ? 'You' : 'They'}: ${m.text}`
   return {
-    last: fit(`Last (${shortDate(latest.date, timeZone)}): ${latest.text}`, 40),
-    owe: '',
-    details: theirs.slice(1, 3).map((m) => fit(m.text, 36)),
+    last: fit(line(all[0]!), 44),
+    owe: all[1] ? fit(line(all[1]), 44) : '',
+    details: all.slice(2, 5).map((m) => fit(line(m), 36)),
   }
 }
 
-const BRIEF_SYSTEM = `You prepare a glance-sized brief for someone about to walk into an in-person meeting.
+/** Drops a "company" that is really the user's own name or domain. */
+function notMine(company: string, myEmail: string): string {
+  if (!company || !myEmail) return company
+  const [local = '', domain = ''] = myEmail.toLowerCase().split('@')
+  const c = company.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const root = PUBLIC_DOMAINS.has(domain) ? '' : (domain.split('.')[0] ?? '')
+  const mine = [local.replace(/[^a-z0-9]/g, ''), root].filter((x) => x.length >= 3)
+  return mine.some((m) => c.includes(m) || m.includes(c)) ? '' : company
+}
+
+const BRIEF_SYSTEM = `You prepare a glance-sized brief for someone (the user, ME) about to walk into an in-person meeting with the other person (THEM).
 It appears on smart glasses with a tiny monochrome display, so every field must be very short.
-Use only facts in the history. Never invent numbers, dates or promises.
-Return JSON:
+Summarise the conversation so far from both sides: what was asked, promised and decided, by either of them.
+Use only facts in the history and event notes. Never invent numbers, dates or promises.
+Return JSON, and fill every field whenever the history has anything in it:
 {
- "company": "their organisation, 1-3 words, or empty",
- "last": "what they last asked for or said, max 30 characters, no 'Last:' prefix",
- "owe": "the most important thing the user owes them or should bring, starting with 'You owe:' or 'Bring:', max 36 characters, or empty",
+ "company": "THEIR organisation, 1-3 words, or empty. Never the user's own name or company",
+ "last": "the latest point in the conversation, from either side, max 32 characters, no 'Last:' prefix, e.g. 'you asked for revised quote' or 'they want launch before March'",
+ "owe": "the main open item, starting with 'You owe:', 'They owe:', 'Ask:' or 'Bring:', max 36 characters",
  "details": ["up to 3 useful facts (budget, deadline, preferences, how you met), each max 32 characters"]
 }`

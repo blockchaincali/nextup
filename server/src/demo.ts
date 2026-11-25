@@ -162,5 +162,6 @@ export function demoSources(user: User): Sources {
     },
 
     myName: () => 'Alex',
+    myEmail: () => 'alex@example.com',
   }
 }

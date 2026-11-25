@@ -65,3 +65,28 @@ test('a greeting-only LLM recap is replaced, keeping the LLM invite', async () =
   assert.match(email.body, /onboarding checklist/)
   assert.equal(drafts.find((d) => d.kind === 'invite')?.kind, 'invite')
 })
+
+test('blank LLM brief fields are filled from the thread, and the user\'s own company is never shown', async () => {
+  const { buildBrief } = await import('../src/brief.js')
+  const day = 86_400_000
+  const sources = {
+    async context() {
+      return {
+        mail: [
+          { id: '2', threadId: 't', subject: 'Re: Website rebuild quote', from: 'Chisom Ogueji <chisomogueji1@gmail.com>', date: new Date(Date.now() - 0.01 * day), snippet: "Thanks! Let's discuss when we meet.", fromMe: false },
+          { id: '1', threadId: 't', subject: 'Website rebuild quote', from: 'TerraFirmAssociates <terrafirmassociates@gmail.com>', date: new Date(Date.now() - 0.02 * day), snippet: 'Our board approved up to $40k. Could you send a revised quote and a rough timeline for phase 2?', fromMe: true },
+        ],
+        chat: [],
+      }
+    },
+    myName: () => 'Terrafirmassociates',
+    myEmail: () => 'terrafirmassociates@gmail.com',
+  } as unknown as import('../src/sources.js').Sources
+  reply = { company: 'TerraFirmAssociates', last: '', owe: '', details: [] }
+  const meeting = { id: 'm', title: 'Website quote and phase 2', start: new Date(Date.now() + 3600_000).toISOString(), end: new Date(Date.now() + 7200_000).toISOString(), attendees: [{ name: 'Chisomogueji1', email: 'chisomogueji1@gmail.com' }] }
+  const brief = await buildBrief(sources, meeting, 'Africa/Lagos')
+  assert.equal(brief.who, 'Chisomogueji1', 'own company dropped')
+  assert.match(brief.last, /^They: Thanks! Let's discuss when we meet/)
+  assert.match(brief.owe, /^You: Our board approved up to \$40k/)
+  assert.match((lastBody as { messages: Array<{ content: string }> }).messages[1]!.content, /The user \(ME in the history\) is Terrafirmassociates <terrafirmassociates@gmail.com>/)
+})
