@@ -171,6 +171,7 @@ export class NextUp {
       case 'list':
         if (!this.meetings.length) {
           if (i === 'tap') await this.loadMeetings().catch(() => {})
+          if (i === 'holdStart') this.fail('No meeting to follow up on', 'Add one to Google Calendar,\nthen tap to refresh.', 'list')
           return
         }
         if (i === 'holdStart') return this.listen('followup')
@@ -405,6 +406,7 @@ export class NextUp {
     const screen = render(this, this.d.now())
     this.d.show(screen)
     this.d.notify?.('screen', screen)
+    this.d.notify?.('mode', this.mode.kind)
     // Only update the phone's suggestion buttons on the meeting screens; hiding
     // them mid-recording would shift the layout under the user's finger.
     if (this.mode.kind === 'list') this.d.notify?.('current', this.current)

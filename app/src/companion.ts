@@ -77,12 +77,15 @@ export function mountCompanion() {
     hold.textContent = 'Listening… release or click'
     void inputHandler('holdStart')
   }
-  const end = () => {
-    if (!recording) return
+  const reset = () => {
     recording = false
     toggled = false
     hold.classList.remove('live')
     hold.textContent = label
+  }
+  const end = () => {
+    if (!recording) return
+    reset()
     void inputHandler('holdEnd')
   }
   hold.addEventListener('pointerdown', (e) => {
@@ -162,6 +165,8 @@ export function mountCompanion() {
     notify(event: string, detail?: unknown) {
       if (event === 'screen') return preview(detail as Screen)
       if (event === 'current') return showChips(detail as Parameters<typeof showChips>[0])
+      // The button only says "Listening" while the app really is.
+      if (event === 'mode') return void (detail !== 'listening' && recording && reset())
       if (event === 'pair') {
         const p = detail as { code: string; pairUrl: string }
         $('pair').hidden = false
