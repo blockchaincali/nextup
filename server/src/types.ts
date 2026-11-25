@@ -36,7 +36,10 @@ export interface Meeting {
   start: string // ISO with offset
   end: string
   location?: string
+  description?: string
   attendees: Person[]
+  /** True when nobody was invited and the person was read from the event title. */
+  inferred?: boolean
 }
 
 /** What the glasses show before a meeting. Every field is short enough for one line. */

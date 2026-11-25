@@ -1,5 +1,6 @@
 // Google Calendar + Gmail over plain REST with fetch, so we ship no SDK.
 import { config } from './config.js'
+import { parseAddress, personFromTitle } from './people.js'
 import type { GoogleTokens, Meeting, Person, User } from './types.js'
 
 export const GOOGLE_SCOPES = [
@@ -93,6 +94,8 @@ interface GEvent {
   id: string
   summary?: string
   location?: string
+  description?: string
+  eventType?: string
   status?: string
   start: { dateTime?: string; date?: string }
   end: { dateTime?: string; date?: string }
@@ -100,8 +103,10 @@ interface GEvent {
 }
 
 /**
- * Meetings with other people between `from` and `to`. Skips all-day events,
- * cancelled events, events you declined and events with nobody else on them.
+ * Timed events between `from` and `to`. Events with guests use the guests;
+ * events without guests take the person from the title when it names one
+ * ("Coffee with Daniel Reyes"). Skips all-day, cancelled and declined events,
+ * and Focus time / Out of office / Working location blocks.
  * Also returns the calendar's time zone.
  */
 export async function listMeetings(user: User, save: (u: User) => void, from: Date, to: Date) {
@@ -120,19 +125,29 @@ export async function listMeetings(user: User, save: (u: User) => void, from: Da
   const meetings: Meeting[] = []
   for (const e of data.items ?? []) {
     if (e.status === 'cancelled' || !e.start.dateTime || !e.end.dateTime) continue
+    if (e.eventType && e.eventType !== 'default' && e.eventType !== 'fromGmail') continue
     const me = e.attendees?.find((a) => a.self)
     if (me?.responseStatus === 'declined') continue
-    const others: Person[] = (e.attendees ?? [])
+    let others: Person[] = (e.attendees ?? [])
       .filter((a) => !a.self && !a.email.endsWith('resource.calendar.google.com'))
       .map((a) => ({ name: a.displayName || nameFromEmail(a.email), email: a.email }))
-    if (others.length === 0) continue
+    let inferred = false
+    if (others.length === 0) {
+      const name = personFromTitle(e.summary ?? '')
+      if (name) {
+        others = [{ name }]
+        inferred = true
+      }
+    }
     meetings.push({
       id: e.id,
-      title: e.summary ?? 'Meeting',
+      title: e.summary ?? 'Untitled event',
       start: e.start.dateTime,
       end: e.end.dateTime,
       location: e.location,
+      description: e.description?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400) || undefined,
       attendees: others,
+      inferred,
     })
   }
   return { timeZone: data.timeZone, meetings }
@@ -187,11 +202,14 @@ export interface MailItem {
   date: Date
   snippet: string
   fromMe: boolean
+  fromAddress?: { name: string; email: string }
 }
 
-/** The latest few emails to or from a person, newest first. */
-export async function recentMail(user: User, save: (u: User) => void, email: string, max = 6): Promise<MailItem[]> {
-  const q = new URLSearchParams({ q: `(from:${email} OR to:${email}) newer_than:120d`, maxResults: String(max) })
+/** The latest few emails to or from a person (by address, or by name when we have no address), newest first. */
+export async function recentMail(user: User, save: (u: User) => void, who: { email?: string; name?: string }, max = 6): Promise<MailItem[]> {
+  const term = who.email ?? (who.name ? `"${who.name.replace(/"/g, '')}"` : '')
+  if (!term) return []
+  const q = new URLSearchParams({ q: `(from:${term} OR to:${term}) newer_than:120d`, maxResults: String(max) })
   const list = await api<{ messages?: Array<{ id: string }> }>(
     user,
     save,
@@ -221,6 +239,7 @@ export async function recentMail(user: User, save: (u: User) => void, email: str
       date: new Date(Number(msg.internalDate)),
       snippet: decodeEntities(msg.snippet),
       fromMe: user.google ? from.toLowerCase().includes(user.google.email.toLowerCase()) : false,
+      fromAddress: parseAddress(from),
     })
   }
   return out.sort((a, b) => b.date.getTime() - a.date.getTime())

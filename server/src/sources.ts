@@ -34,9 +34,15 @@ export function sourcesFor(user: User, save: (u: User) => void): Sources {
     meetings: (from, to) => google.listMeetings(user, save, from, to),
     async context(person) {
       const [mail, chat] = await Promise.all([
-        person.email && user.google ? google.recentMail(user, save, person.email).catch(() => []) : Promise.resolve([]),
+        user.google ? google.recentMail(user, save, person).catch(() => []) : Promise.resolve([]),
         tg ? telegram.recentChat(user, person).catch(() => []) : Promise.resolve([]),
       ])
+      // Found by name only: learn their address from the latest email they sent,
+      // so the follow-up can go to them.
+      if (!person.email) {
+        const theirs = mail.find((m) => !m.fromMe && m.fromAddress)
+        if (theirs?.fromAddress) person.email = theirs.fromAddress.email
+      }
       return { mail, chat }
     },
     isFree: (start, end) => google.isFree(user, save, start, end),

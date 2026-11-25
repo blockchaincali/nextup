@@ -22,6 +22,8 @@ Double-tap always exits, following the platform convention.
 
 **What Next Up adds to Even's built-in Conversate:** Conversate helps during a conversation. It works from prep notes you upload yourself, shows a live transcript, and saves a summary afterwards. Next Up covers before and after: the brief writes itself from your calendar, email and Telegram, and the follow-up actually gets sent. It never listens to the meeting itself.
 
+**Which events count:** every timed event in the next 18 hours. Invited guests are used when present. Otherwise the person is read from the title ("Coffee with Daniel Reyes", "Call w/ Priya"), found in Gmail and Telegram by name, and their email address is taken from their latest message. Events that name nobody still show their time, location and notes. Cancelled, declined and all-day events, Focus time, Out of office and Working location blocks are skipped.
+
 ## Repository
 
 ```

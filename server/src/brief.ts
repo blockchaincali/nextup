@@ -60,6 +60,18 @@ export async function buildBrief(sources: Sources, meeting: Meeting, timeZone: s
     preferredChannel: preferred,
   }
 
+  // No person on the event and none in its title: show what the event itself says.
+  if (!lead) {
+    const notes = (meeting.description ?? '').split(/(?<=[.!?])\s+|\n+/).map((x) => x.trim()).filter(Boolean)
+    return {
+      ...base,
+      who: fit(meeting.title, 34),
+      last: meeting.location ? fit(`At: ${meeting.location}`, 40) : '',
+      owe: notes[0] ? fit(notes[0], 40) : '',
+      details: notes.slice(1, 4).map((n) => fit(n, 36)),
+    }
+  }
+
   const canned = sources.cannedBrief?.(meeting)
   if (canned && !hasLlm()) return { ...base, ...canned }
 
@@ -67,7 +79,7 @@ export async function buildBrief(sources: Sources, meeting: Meeting, timeZone: s
     try {
       const out = await llmJson<{ company?: string; last?: string; owe?: string; details?: string[] }>(
         BRIEF_SYSTEM,
-        `Meeting: ${meeting.title}\nWhen: ${shortDate(start, timeZone)} ${base.time}\nWith: ${meeting.attendees
+        `Meeting: ${meeting.title}${meeting.location ? `\nWhere: ${meeting.location}` : ''}${meeting.description ? `\nNotes on the event: ${meeting.description}` : ''}\nWhen: ${shortDate(start, timeZone)} ${base.time}\nWith: ${meeting.attendees
           .map((a) => `${a.name}${a.email ? ` <${a.email}>` : ''}`)
           .join(', ')}\n\nHistory (newest first):\n${historyText(ctx, timeZone)}`,
       )
@@ -93,7 +105,7 @@ function plainSummary(ctx: Context, timeZone: string): Pick<Brief, 'last' | 'owe
     ...ctx.chat.filter((c) => !c.fromMe).map((c) => ({ date: c.date, text: c.text })),
   ].sort((a, b) => b.date.getTime() - a.date.getTime())
   const latest = theirs[0]
-  if (!latest) return { last: 'First conversation', owe: '', details: [] }
+  if (!latest) return { last: 'No messages with them yet', owe: '', details: [] }
   return {
     last: fit(`Last (${shortDate(latest.date, timeZone)}): ${latest.text}`, 40),
     owe: '',
