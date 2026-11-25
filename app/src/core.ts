@@ -24,7 +24,7 @@ export interface Deps {
 type Mode =
   | { kind: 'boot' }
   | { kind: 'pair'; code: string; url: string; expiresAt: number; phonePaired?: boolean }
-  | { kind: 'list'; detail: boolean }
+  | { kind: 'list'; view: 'brief' | 'detail' | 'suggest'; pick: number }
   | { kind: 'listening'; target: 'followup' | 'revise'; startedAt: number }
   | { kind: 'thinking'; label: string }
   | { kind: 'draft' }
@@ -122,7 +122,7 @@ export class NextUp {
     const kept = keepPosition ? this.meetings.findIndex((m) => m.meeting.id === currentId) : -1
     this.index = kept >= 0 ? kept : Math.max(0, data.focus)
     if (this.mode.kind === 'boot' || this.mode.kind === 'pair' || this.mode.kind === 'list' || this.mode.kind === 'done' || this.mode.kind === 'message') {
-      this.mode = { kind: 'list', detail: this.mode.kind === 'list' ? this.mode.detail : false }
+      this.mode = this.mode.kind === 'list' ? this.mode : { kind: 'list', view: 'brief', pick: 0 }
     }
     this.draw()
     this.d.notify?.('meetings', data)
@@ -143,6 +143,11 @@ export class NextUp {
     return this.meetings[this.index]
   }
 
+  /** The suggestions for the current meeting, plus a way back. */
+  suggestionOptions(): string[] {
+    return [...(this.current?.brief.suggestions ?? []), 'Back to brief']
+  }
+
   // ── input ─────────────────────────────────────────────────────────────
 
   async input(i: Input) {
@@ -157,21 +162,39 @@ export class NextUp {
           if (i === 'tap') await this.loadMeetings().catch(() => {})
           return
         }
+        if (i === 'holdStart') return this.listen('followup')
+        if (m.view === 'suggest') {
+          // Swipe moves the highlight; tap uses it. The last entry goes back.
+          const options = this.suggestionOptions()
+          if (i === 'swipeDown') this.mode = { ...m, pick: (m.pick + 1) % options.length }
+          if (i === 'swipeUp') this.mode = { ...m, pick: (m.pick - 1 + options.length) % options.length }
+          if (i === 'tap') {
+            const chosen = this.current?.brief.suggestions?.[m.pick]
+            if (!chosen) {
+              this.mode = { kind: 'list', view: 'brief', pick: 0 }
+              return this.draw()
+            }
+            this.d.notify?.('suggestion', chosen)
+            return this.submit('followup', chosen)
+          }
+          return this.draw()
+        }
         if (i === 'tap') {
-          this.mode = { kind: 'list', detail: !m.detail }
+          const hasSuggestions = (this.current?.brief.suggestions?.length ?? 0) > 0
+          const view = m.view === 'brief' ? 'detail' : hasSuggestions ? 'suggest' : 'brief'
+          this.mode = { kind: 'list', view, pick: 0 }
           return this.draw()
         }
         if (i === 'swipeDown' && this.index < this.meetings.length - 1) {
           this.index++
-          this.mode = { kind: 'list', detail: false }
+          this.mode = { kind: 'list', view: 'brief', pick: 0 }
           return this.draw()
         }
         if (i === 'swipeUp' && this.index > 0) {
           this.index--
-          this.mode = { kind: 'list', detail: false }
+          this.mode = { kind: 'list', view: 'brief', pick: 0 }
           return this.draw()
         }
-        if (i === 'holdStart') return this.listen('followup')
         return
       case 'listening':
         if (i === 'holdEnd') return this.finishListening()
@@ -222,7 +245,8 @@ export class NextUp {
     this.draw()
     try {
       await this.d.mic.start()
-    } catch {
+    } catch (e) {
+      console.warn('[nextup] mic start failed:', e)
       return this.fail('Microphone unavailable', 'Type on your phone instead.', target === 'revise' ? 'draft' : 'list')
     }
     this.later(() => {
@@ -243,7 +267,7 @@ export class NextUp {
     if (m.kind !== 'listening') return
     await this.d.mic.stop().catch(() => new Uint8Array())
     if (m.target === 'revise') this.mode = { kind: 'draft' }
-    else this.mode = { kind: 'list', detail: false }
+    else this.mode = { kind: 'list', view: 'brief', pick: 0 }
     this.draw()
   }
 
@@ -347,7 +371,7 @@ export class NextUp {
 
   private async backToList() {
     this.session = null
-    this.mode = { kind: 'list', detail: false }
+    this.mode = { kind: 'list', view: 'brief', pick: 0 }
     // Jump to the next meeting that hasn't happened yet.
     const nextIdx = this.meetings.findIndex((m) => m.phase !== 'past')
     if (nextIdx >= 0) this.index = nextIdx
@@ -370,6 +394,9 @@ export class NextUp {
     const screen = render(this, this.d.now())
     this.d.show(screen)
     this.d.notify?.('screen', screen)
+    // Only update the phone's suggestion buttons on the meeting screens; hiding
+    // them mid-recording would shift the layout under the user's finger.
+    if (this.mode.kind === 'list') this.d.notify?.('current', this.current)
   }
 }
 
@@ -408,12 +435,20 @@ export function render(app: NextUp, now: number): Screen {
       const b = item.brief
       const position = app.meetings.length > 1 ? `  ${app.index + 1}/${app.meetings.length}` : ''
       const header = `${headerFor(item, now)} · ${b.time}${position}`
-      if (m.detail) {
+      if (m.view === 'suggest') {
+        const options = app.suggestionOptions()
+        return {
+          header: `QUICK FOLLOW-UP · ${(b.who.split(' · ')[0] ?? '').toUpperCase()}`,
+          body: options.map((o, i) => `${i === m.pick ? '>' : ' '} ${o}`).join('\n'),
+          footer: HINT('Swipe: choose', 'Tap: use', 'Hold: speak'),
+        }
+      }
+      if (m.view === 'detail') {
         const lines = b.details.length ? b.details.map((d) => `• ${d}`) : ['No more notes']
         return {
           header: `${b.who.split(' · ')[0]?.toUpperCase()} · MORE${position}`,
           body: lines.join('\n'),
-          footer: HINT('Tap: back', 'Hold: speak follow-up'),
+          footer: b.suggestions?.length ? HINT('Tap: quick follow-ups', 'Hold: speak') : HINT('Tap: back', 'Hold: speak follow-up'),
         }
       }
       const lines = [b.who, '', b.last, b.owe].filter((l, i) => l || i === 1)

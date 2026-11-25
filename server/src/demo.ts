@@ -143,6 +143,7 @@ export function demoSources(user: User): Sources {
           last: 'Last: asked for a revised quote',
           owe: 'You owe: timeline for phase 2',
           details: ['Budget capped at $40k', 'Wants launch before March', 'You met once: Oct 30'],
+          suggestions: ['Send revised quote Friday, book check-in next Tuesday', 'Send phase 2 timeline tomorrow', 'Thank him, book a call next week'],
         }
       if (meeting.id === 'demo-priya')
         return {
@@ -150,6 +151,7 @@ export function demoSources(user: User): Sources {
           last: 'Last: asked for retention numbers',
           owe: 'Bring: pilot results',
           details: ['Met at the founders dinner', 'Prefers Telegram', 'Coffee, 30 min'],
+          suggestions: ['Send retention numbers tomorrow', 'Thank her, book a follow-up next Thursday', 'Send the pilot results today'],
         }
       if (meeting.id === 'demo-sam')
         return {
@@ -157,6 +159,7 @@ export function demoSources(user: User): Sources {
           last: 'Last: setup was confusing',
           owe: 'You owe: onboarding checklist',
           details: ['Customer since September', 'Week-one drop-off issue', 'Wants a joint review'],
+          suggestions: ['Send the onboarding checklist tomorrow', 'Book a joint review on Friday at 2pm', 'Thank him, send fixes next Monday'],
         }
       return undefined
     },

@@ -23,7 +23,11 @@ export function mountCompanion() {
       <button data-input="tap" type="button">Tap</button>
       <button data-input="swipeUp" type="button">Swipe ↑</button>
       <button data-input="swipeDown" type="button">Swipe ↓</button>
-      <button id="hold" type="button">Hold</button>
+      <button id="hold" type="button">Hold to talk</button>
+    </section>
+    <section id="suggest" class="card" hidden>
+      <label>Quick follow-ups</label>
+      <div id="chips" class="chips"></div>
     </section>
     <form id="type" class="card">
       <label for="typed">Type instead of speaking</label>
@@ -52,8 +56,41 @@ export function mountCompanion() {
     b.addEventListener('click', () => void inputHandler(b.dataset.input as Input)),
   )
   const hold = $<HTMLButtonElement>('hold')
-  hold.addEventListener('pointerdown', () => void inputHandler('holdStart'))
-  hold.addEventListener('pointerup', () => void inputHandler('holdEnd'))
+  let holding = false
+  const release = () => {
+    if (!holding) return
+    holding = false
+    hold.classList.remove('live')
+    void inputHandler('holdEnd')
+  }
+  hold.addEventListener('pointerdown', (e) => {
+    e.preventDefault()
+    holding = true
+    hold.classList.add('live')
+    void inputHandler('holdStart')
+  })
+  hold.addEventListener('pointerup', release)
+  hold.addEventListener('pointerleave', release)
+  hold.addEventListener('pointercancel', release)
+
+  let chipsFor = ''
+  const showChips = (item: { meeting: { id: string }; brief: { suggestions?: string[] } } | undefined) => {
+    const list = item?.brief.suggestions ?? []
+    const key = `${item?.meeting.id}:${list.join('|')}`
+    if (key === chipsFor) return
+    chipsFor = key
+    $('suggest').hidden = list.length === 0
+    const box = $('chips')
+    box.replaceChildren(
+      ...list.map((text) => {
+        const b = document.createElement('button')
+        b.type = 'button'
+        b.textContent = text
+        b.addEventListener('click', () => void typedHandler(text))
+        return b
+      }),
+    )
+  }
 
   const log = (line: string) => {
     logEl.textContent = `${new Date().toLocaleTimeString()} ${line}\n${logEl.textContent ?? ''}`.slice(0, 4000)
@@ -89,6 +126,7 @@ export function mountCompanion() {
     },
     notify(event: string, detail?: unknown) {
       if (event === 'screen') return preview(detail as Screen)
+      if (event === 'current') return showChips(detail as Parameters<typeof showChips>[0])
       if (event === 'pair') {
         const p = detail as { code: string; pairUrl: string }
         $('pair').hidden = false
@@ -114,6 +152,7 @@ export function mountCompanion() {
 function injectStyles() {
   const css = `
   :root { color-scheme: dark; }
+  [hidden] { display: none !important; }
   html, body { margin: 0; background: #232323; color: #E5E5E5;
     font: 15px/1.45 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     touch-action: manipulation; -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
@@ -134,7 +173,10 @@ function injectStyles() {
     border: 1px solid #3E3E3E; border-radius: 8px; padding: 10px; }
   button { font: inherit; font-weight: 600; margin-top: 8px; min-height: 44px; padding: 8px 14px; border-radius: 8px;
     border: 0; background: #3CFA44; color: #0b2a0d; }
-  .gestures button { margin: 0; background: transparent; color: #3CFA44; border: 1px solid #3CFA44; }
+  .gestures button { margin: 0; background: transparent; color: #3CFA44; border: 1px solid #3CFA44; touch-action: none; user-select: none; }
+  .gestures button.live { background: #3CFA44; color: #0b2a0d; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips button { margin: 0; background: transparent; color: #3CFA44; border: 1px solid #3CFA44; text-align: left; font-weight: 500; }
   a { color: #3CFA44; }
   .muted { color: #A7A7A7; font-size: 13px; }
   #log { white-space: pre-wrap; font-size: 12px; }`

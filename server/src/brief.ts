@@ -56,6 +56,7 @@ export async function buildBrief(sources: Sources, meeting: Meeting, timeZone: s
     last: '',
     owe: '',
     details: [],
+    suggestions: [],
     channels,
     preferredChannel: preferred,
   }
@@ -69,16 +70,19 @@ export async function buildBrief(sources: Sources, meeting: Meeting, timeZone: s
       last: meeting.location ? fit(`At: ${meeting.location}`, 40) : '',
       owe: notes[0] ? fit(notes[0], 40) : '',
       details: notes.slice(1, 4).map((n) => fit(n, 36)),
+      suggestions: [],
     }
   }
 
   const canned = sources.cannedBrief?.(meeting)
   if (canned && !hasLlm()) return { ...base, ...canned }
+  const first = lead.name.split(' ')[0] ?? lead.name
+  const defaults = [`Thank ${first}, book a follow-up next week`, `Send ${first} a recap today`]
 
   if (hasLlm() && (ctx.mail.length || ctx.chat.length)) {
     try {
       const me = sources.myEmail()
-      const out = await llmJson<{ company?: string; last?: string; owe?: string; details?: string[] }>(
+      const out = await llmJson<{ company?: string; last?: string; owe?: string; details?: string[]; suggestions?: string[] }>(
         BRIEF_SYSTEM,
         `The user (ME in the history) is ${sources.myName() || 'the account owner'}${me ? ` <${me}>` : ''}.\nMeeting: ${meeting.title}${meeting.location ? `\nWhere: ${meeting.location}` : ''}${meeting.description ? `\nNotes on the event: ${meeting.description}` : ''}\nWhen: ${shortDate(start, timeZone)} ${base.time}\nWith: ${meeting.attendees
           .map((a) => `${a.name}${a.email ? ` <${a.email}>` : ''}`)
@@ -95,13 +99,23 @@ export async function buildBrief(sources: Sources, meeting: Meeting, timeZone: s
         last: out.last?.trim() ? fit(`Last: ${out.last.trim().replace(/^last:\s*/i, '')}`, 40) : plain.last,
         owe: out.owe?.trim() ? fit(out.owe.trim(), 40) : plain.owe,
         details: (details.length ? details : plain.details).slice(0, 3).map((d) => fit(d, 36)),
+        suggestions: cleanSuggestions(out.suggestions, defaults),
       }
     } catch (e) {
       console.warn('[brief] LLM failed, using plain summary:', (e as Error).message)
     }
   }
 
-  return { ...base, ...plainSummary(ctx, timeZone) }
+  return { ...base, ...plainSummary(ctx, timeZone), suggestions: defaults }
+}
+
+/** Up to 3 short, distinct suggestions; generic ones when the model gives none. */
+function cleanSuggestions(raw: unknown, defaults: string[]): string[] {
+  const list = (Array.isArray(raw) ? raw : [])
+    .map((x) => fit(String(x).replace(/^[•\-\d.)\s]+/, ''), 52))
+    .filter((x) => x.length > 3)
+  const unique = [...new Set(list)]
+  return (unique.length ? unique : defaults).slice(0, 3)
 }
 
 /** No LLM (or blank fields): the latest messages, whoever sent them. */
@@ -138,5 +152,6 @@ Return JSON, and fill every field whenever the history has anything in it:
  "company": "THEIR organisation, 1-3 words, or empty. Never the user's own name or company",
  "last": "the latest point in the conversation, from either side, max 32 characters, no 'Last:' prefix, e.g. 'you asked for revised quote' or 'they want launch before March'",
  "owe": "the main open item, starting with 'You owe:', 'They owe:', 'Ask:' or 'Bring:', max 36 characters",
- "details": ["up to 3 useful facts (budget, deadline, preferences, how you met), each max 32 characters"]
+ "details": ["up to 3 useful facts (budget, deadline, preferences, how you met), each max 32 characters"],
+ "suggestions": ["3 likely follow-ups the user may want after this meeting, written as the instruction they would speak, imperative, max 48 characters, with a day where it fits, e.g. 'Send revised quote Friday, book check-in Tuesday'. Base them on the open items in the history."]
 }`

@@ -17,10 +17,22 @@ import { mountCompanion } from './companion'
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, '') || 'http://localhost:8787'
 
 const companion = mountCompanion()
-const bridge = await Promise.race([
-  waitForEvenAppBridge(),
-  new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
-]).catch(() => null)
+const bridge = await connectBridge()
+
+/**
+ * The SDK hands back a bridge object even in a plain browser, where every
+ * call quietly does nothing. Only treat it as glasses (or the simulator)
+ * when it actually answers.
+ */
+async function connectBridge(): Promise<EvenAppBridge | null> {
+  const timeout = <T>(ms: number, v: T) => new Promise<T>((r) => setTimeout(() => r(v), ms))
+  const b = await Promise.race([waitForEvenAppBridge(), timeout(2500, null)]).catch(() => null)
+  if (!b) return null
+  const host = (window as unknown as { flutter_inappwebview?: { callHandler?: unknown } }).flutter_inappwebview
+  if (typeof host?.callHandler === 'function') return b
+  const info = await Promise.race([b.getDeviceInfo().catch(() => null), timeout(1500, null)])
+  return info ? b : null
+}
 
 // ── display: three text containers (header, body, footer) ──────────────
 
@@ -115,6 +127,72 @@ function glassesMic(b: EvenAppBridge) {
   }
 }
 
+/**
+ * The computer's microphone for the browser preview, delivering the same
+ * PCM s16le 16 kHz mono that the G2 sends, so the server path is identical.
+ */
+function browserMic() {
+  let ctx: AudioContext | null = null
+  let stream: MediaStream | null = null
+  let node: ScriptProcessorNode | null = null
+  let chunks: Float32Array[] = []
+  let rate = 48_000
+  let starting: Promise<void> | null = null
+  return {
+    start() {
+      starting = open()
+      return starting
+    },
+    async stop() {
+      await starting?.catch(() => {}) // a quick release must not leave the mic open
+      starting = null
+      return close()
+    },
+  }
+
+  async function open() {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } })
+    // Record at the device's own rate (browsers refuse to mix rates), then resample to 16 kHz.
+    ctx = new AudioContext()
+    rate = ctx.sampleRate
+    const source = ctx.createMediaStreamSource(stream)
+    node = ctx.createScriptProcessor(4096, 1, 1)
+    chunks = []
+    node.onaudioprocess = (e) => chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)))
+    source.connect(node)
+    node.connect(ctx.destination)
+  }
+
+  async function close() {
+    node?.disconnect()
+    stream?.getTracks().forEach((t) => t.stop())
+    await ctx?.close().catch(() => {})
+    node = null
+    stream = null
+    ctx = null
+    const total = chunks.reduce((n, c) => n + c.length, 0)
+    const input = new Float32Array(total)
+    let o = 0
+    for (const c of chunks) {
+      input.set(c, o)
+      o += c.length
+    }
+    chunks = []
+    // Average each window of input samples into one 16 kHz sample (cheap low-pass + decimate).
+    const ratio = rate / 16_000
+    const out = new Int16Array(Math.floor(total / ratio))
+    for (let i = 0; i < out.length; i++) {
+      const from = Math.floor(i * ratio)
+      const to = Math.min(total, Math.floor((i + 1) * ratio))
+      let sum = 0
+      for (let j = from; j < to; j++) sum += input[j]!
+      const v = to > from ? sum / (to - from) : 0
+      out[i] = Math.max(-1, Math.min(1, v)) * 0x7fff
+    }
+    return new Uint8Array(out.buffer)
+  }
+}
+
 // ── input ───────────────────────────────────────────────────────────────
 
 // CLICK_EVENT is 0 and protobuf drops zero values, so a tap arrives with no
@@ -194,19 +272,12 @@ if (bridge) {
   await app.start()
 } else {
   // Browser preview: no glasses, so the companion page draws the 576×288 display
-  // and offers buttons and keys for the gestures. Voice is replaced by typing.
+  // and offers buttons and keys for the gestures. Voice uses the computer's mic.
   companion.enablePreview()
   const app = new NextUp({
     api,
     show: companion.preview,
-    mic: {
-      async start() {
-        throw new Error('no mic in preview')
-      },
-      async stop() {
-        return new Uint8Array()
-      },
-    },
+    mic: browserMic(),
     storage: storageFor(null),
     now: () => Date.now(),
     notify: companion.notify,

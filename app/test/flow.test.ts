@@ -74,10 +74,17 @@ test('first run shows a pairing code; the phone pairs and picks demo data', asyn
   assert.equal(last().footer, 'Tap: more   ·   Hold: speak   ·   Swipe: next')
 })
 
-test('tap shows more; swipes move between meetings', async () => {
+test('tap shows more, then quick follow-ups; swipes move between meetings', async () => {
   await app.input('tap')
   assert.equal(last().body, '• Budget capped at $40k\n• Wants launch before March\n• You met once: Oct 30')
+  assert.match(last().footer, /^Tap: quick follow-ups/)
   await app.input('tap')
+  assert.equal(last().header, 'QUICK FOLLOW-UP · DANIEL REYES')
+  assert.match(last().body, /^> Send revised quote Friday, book check-in next Tuesday\n  Send phase 2 timeline tomorrow/)
+  await app.input('swipeUp') // wraps to "Back to brief"
+  assert.match(last().body, /\n> Back to brief$/)
+  await app.input('tap')
+  assert.match(last().body, /^Daniel Reyes/)
   await app.input('swipeDown')
   assert.match(last().body, /^Priya Shah/)
   await app.input('swipeUp')
@@ -85,6 +92,18 @@ test('tap shows more; swipes move between meetings', async () => {
   assert.match(last().header, /^AFTER · ENDED/)
   assert.match(last().footer, /^Hold: speak follow-up/)
   await app.input('swipeDown')
+  assert.match(last().body, /^Daniel Reyes/)
+})
+
+test('one tap on a suggestion drafts the follow-up, no typing or talking', async () => {
+  await app.input('tap')
+  await app.input('tap')
+  await app.input('tap') // use the first suggestion
+  await until(() => last().header.startsWith('DRAFT 1 / 3 · EMAIL'))
+  assert.match(last().body, /revised quote by Friday/)
+  for (let i = 0; i < 3; i++) await app.input('swipeDown') // skip all three
+  await until(() => last().header.startsWith('DONE'))
+  await app.input('tap')
   assert.match(last().body, /^Daniel Reyes/)
 })
 

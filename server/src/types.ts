@@ -51,6 +51,8 @@ export interface Brief {
   last: string // "Last: asked for a revised quote (Nov 18)"
   owe: string // "You owe: timeline for phase 2"
   details: string[] // up to 3 bullet lines
+  /** Up to 3 one-tap follow-ups, written as the instruction the user would speak. */
+  suggestions: string[]
   channels: Array<'email' | 'telegram'>
   preferredChannel: 'email' | 'telegram'
 }

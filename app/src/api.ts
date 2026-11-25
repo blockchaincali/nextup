@@ -3,7 +3,7 @@
 
 export interface MeetingItem {
   meeting: { id: string; title: string; start: string; end: string; location?: string; attendees: string[] }
-  brief: { who: string; time: string; last: string; owe: string; details: string[]; minutesUntil: number }
+  brief: { who: string; time: string; last: string; owe: string; details: string[]; suggestions?: string[]; minutesUntil: number }
   phase: 'past' | 'now' | 'upcoming'
   header: string
 }
