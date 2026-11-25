@@ -14,7 +14,13 @@ import { Api } from './api'
 import { NextUp, type Input, type Screen } from './core'
 import { mountCompanion } from './companion'
 
-const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, '') || 'http://localhost:8787'
+// Where the server is: an explicit build setting (needed inside the Even app),
+// else the site serving this page (the hosted /try preview), else local dev.
+const API_BASE =
+  (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, '') ||
+  (location.protocol.startsWith('http') && location.port !== '5173' ? location.origin : 'http://localhost:8787')
+/** /try/?demo pairs straight to demo data: one click for judges, no phone needed. */
+const DEMO = new URLSearchParams(location.search).has('demo')
 
 const companion = mountCompanion()
 const bridge = await connectBridge()
@@ -279,6 +285,7 @@ if (bridge) {
     show: companion.preview,
     mic: browserMic(),
     storage: storageFor(null),
+    demo: DEMO,
     now: () => Date.now(),
     notify: companion.notify,
   })

@@ -60,6 +60,15 @@ export class Api {
     return this.call<{ token: string; code: string; expiresAt: number; pairUrl: string }>('/api/pair/start', { method: 'POST' })
   }
 
+  /** Pairs this browser straight to a demo account (sample meetings, nothing is sent). */
+  pairDemo(timeZone: string) {
+    return this.call<{ token: string }>('/api/pair/demo', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ timeZone }),
+    })
+  }
+
   pairStatus() {
     return this.call<{ paired?: boolean; linked: boolean; demo: boolean }>('/api/pair/status')
   }

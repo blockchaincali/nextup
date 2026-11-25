@@ -10,7 +10,8 @@
     "test": "npx -y tsx@^4.23.15 --test test/*.test.ts",
     "pack": "npm run build && npx -y -p @evenrealities/evenhub-cli@^0.2.0 evenhub pack app.json dist",
     "simulate": "npx -y -p @evenrealities/evenhub-simulator@^0.9.5 evenhub-simulator http://localhost:5173",
-    "qr": "npx -y -p @evenrealities/evenhub-cli@^0.2.0 evenhub qr --url http://$(node -e \"const o=require('os').networkInterfaces();console.log(Object.values(o).flat().find(i=>i.family==='IPv4'&&!i.internal).address)\"):5173"
+    "qr": "npx -y -p @evenrealities/evenhub-cli@^0.2.0 evenhub qr --url http://$(node -e \"const o=require('os').networkInterfaces();console.log(Object.values(o).flat().find(i=>i.family==='IPv4'&&!i.internal).address)\"):5173",
+    "build:hosted": "tsc --noEmit && vite build --base=/try/ --outDir ../server/public/try --emptyOutDir"
   },
   "dependencies": {
     "@evenrealities/even_hub_sdk": "^0.0.16"

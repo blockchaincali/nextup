@@ -40,6 +40,11 @@ server/   Backend: Node + Express + TypeScript
   src/demo.ts       Sample day used when no accounts are connected
 ```
 
+## Try it now
+
+- **https://nextup.up.railway.app/try/?demo**: the glasses app in your browser, already paired to sample meetings. Use the Tap / Swipe / Hold buttons (Hold uses your microphone), or the quick follow-ups. Nothing is sent anywhere.
+- **https://nextup.up.railway.app/try/**: the same, paired to your own Google account through the phone page.
+
 ## Run it locally (no keys needed)
 
 ```bash
@@ -76,7 +81,7 @@ Google sign-in can't run inside the glasses WebView, so the user pairs on their 
 
 ## Deploy (Railway)
 
-1. Create a service from this repo and set **Settings → Source → Root Directory** to `/server`. Build, start and health-check settings come from `server/railway.json`.
+1. Create a service from this repo and leave **Root Directory** empty. The root `railway.json` builds the glasses app's browser preview (served at `/try`) and the server together.
 2. Add a volume mounted at `/data`, and set `DATA_FILE=/data/store.json`.
 3. Set `PUBLIC_URL`, `SESSION_SECRET` and the keys above.
 4. In `app/app.json`, set the `network` whitelist to your server URL. Then build and pack the app:

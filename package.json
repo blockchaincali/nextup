@@ -1,0 +1,10 @@
+{
+  "name": "nextup",
+  "private": true,
+  "description": "Next Up for Even G2: builds the glasses app preview and the server together (used by Railway).",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "npm ci --prefix app && npm run build:hosted --prefix app && npm ci --prefix server && npm run build --prefix server",
+    "start": "npm start --prefix server"
+  }
+}

@@ -76,7 +76,8 @@ export function landingPage(): string {
 <h1 aria-label="Know who you're meeting. Follow up before you reach the car."><span class="type" id="type" aria-hidden="true">Know who you're meeting.
 Follow up before you reach the car.</span><span class="caret" aria-hidden="true"></span></h1>
 <p class="muted">Next Up shows a one-glance brief on your Even G2 before an in-person meeting, then turns one spoken sentence into a follow-up email, invite and reminders you approve with a tap.</p>
-<div class="cta"><a class="btn" href="/pair">Pair my glasses</a><a href="/privacy">How we handle your data</a></div>
+<div class="cta"><a class="btn" href="/try/?demo">Try the demo in your browser</a><a class="btn secondary" href="/pair">Pair my glasses</a></div>
+<p class="muted" style="font-size:14px">The demo uses sample meetings and sends nothing. <a href="/privacy">How we handle your data</a></p>
 </section>
 <figure class="hud" role="img" aria-label="Example brief on the glasses: Daniel Reyes from Harbor Studio, in 12 minutes. He last asked for a revised quote; you owe a timeline for phase 2.">
 <div class="dim">NEXT UP · IN 12 MIN · 14:00</div>

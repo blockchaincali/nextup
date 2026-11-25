@@ -19,6 +19,8 @@ export interface Deps {
   now(): number
   /** Mirrors status to the phone screen; optional. */
   notify?(event: string, detail?: unknown): void
+  /** Skip pairing and use demo data (the hosted /try/?demo preview). */
+  demo?: boolean
 }
 
 type Mode =
@@ -62,6 +64,15 @@ export class NextUp {
   async start() {
     this.draw()
     this.d.api.token = await this.d.storage.get(TOKEN_KEY).catch(() => '')
+    if (!this.d.api.token && this.d.demo) {
+      try {
+        const { token } = await this.d.api.pairDemo(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')
+        this.d.api.token = token
+        await this.d.storage.set(TOKEN_KEY, token)
+      } catch {
+        /* fall back to normal pairing */
+      }
+    }
     if (!this.d.api.token) return this.beginPairing()
     try {
       const s = await this.d.api.pairStatus()

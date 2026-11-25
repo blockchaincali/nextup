@@ -1,4 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from 'express'
+import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { ActionQueue } from './actions.js'
 import { buildBrief } from './brief.js'
@@ -118,6 +120,24 @@ export function createApp(opts: AppOptions) {
     const d = store.device(token) ?? store.createDevice()
     const code = store.issuePairCode(d)
     res.json({ token: d.token, code, expiresAt: d.pairCodeExpiresAt, pairUrl: `${config.publicUrl}/pair` })
+  })
+
+  // One-click demo for judges: a fresh demo account, already linked. Sample data only; nothing is sent.
+  app.post('/api/pair/demo', (req, res) => {
+    if (limited(`demo:${req.ip}`, 20, 60 * 60_000)) return void res.status(429).json({ error: 'slow_down' })
+    store.pruneDemo(24 * 3600_000)
+    const tz = String((req.body as { timeZone?: string })?.timeZone ?? '')
+    let timeZone = 'UTC'
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: tz })
+      timeZone = tz || 'UTC'
+    } catch {
+      /* keep UTC */
+    }
+    const d = store.createDevice()
+    const user = store.createUser({ demo: true, timeZone })
+    store.linkDevice(d, user)
+    res.json({ token: d.token })
   })
 
   app.get('/api/pair/status', device, (req, res) => {
@@ -288,6 +308,20 @@ export function createApp(opts: AppOptions) {
   // ── phone pages: pairing and connecting accounts ──────────────────────
 
   app.get('/', (_req, res) => res.type('html').send(landingPage()))
+
+  // The glasses app's browser preview, built from ../app into public/try.
+  const tryDir = fileURLToPath(new URL('../public/try', import.meta.url))
+  if (existsSync(tryDir)) {
+    // /try → /try/ so the page's relative asset paths resolve (Express treats both alike, so check the raw URL).
+    app.get('/try', (req, res, next) => {
+      const [path, query] = req.originalUrl.split('?')
+      if (path === '/try') return res.redirect(301, `/try/${query ? `?${query}` : ''}`)
+      next()
+    })
+    app.use('/try', express.static(tryDir, { maxAge: '1h', index: 'index.html' }))
+  } else {
+    app.get('/try*', (_req, res) => res.status(404).type('html').send(pairPage('The browser preview isn’t built on this server yet.')))
+  }
   app.get(['/favicon.svg', '/logo.svg'], (_req, res) => res.type('image/svg+xml').set('cache-control', 'public, max-age=86400').send(LOGO_SVG))
   app.get('/favicon.ico', (_req, res) => res.redirect(301, '/favicon.svg'))
   app.get('/privacy', (_req, res) => res.type('html').send(privacyPage()))

@@ -124,6 +124,12 @@ export class Store {
     this.save()
   }
 
+  /** Removes demo accounts (and their devices) older than maxAgeMs. */
+  pruneDemo(maxAgeMs: number) {
+    const cutoff = Date.now() - maxAgeMs
+    for (const u of Object.values(this.data.users)) if (u.demo && !u.google && u.createdAt < cutoff) this.deleteUser(u.id)
+  }
+
   // ── follow-up sessions and actions ───────────────────────────────────
   putSession(s: FollowUpSession) {
     this.data.sessions[s.id] = s
