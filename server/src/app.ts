@@ -8,7 +8,8 @@ import { config, hasGoogle, hasStt, hasTelegram } from './config.js'
 import { demoLog } from './demo.js'
 import { makeDrafts, reviseDraft, toCard } from './followup.js'
 import * as google from './google.js'
-import { connectPage, landingPage, LOGO_SVG, pairPage, privacyPage, telegramPage } from './pages.js'
+import QRCode from 'qrcode'
+import { connectPage, landingPage, LOGO_SVG, pairPage, privacyPage, telegramPage, telegramQrPage } from './pages.js'
 import { sourcesFor } from './sources.js'
 import { id, Store } from './store.js'
 import { transcribe } from './stt.js'
@@ -400,9 +401,60 @@ export function createApp(opts: AppOptions) {
     }),
   )
 
-  app.get('/connect/telegram', (req, res) => {
-    if (requireWeb(req, res)) res.type('html').send(telegramPage('phone'))
+  const qrImage = (url: string) => QRCode.toDataURL(url, { margin: 1, width: 240, errorCorrectionLevel: 'M' })
+
+  // QR login is the default: Telegram often withholds login codes from third-party apps.
+  app.get(
+    '/connect/telegram',
+    wrap(async (req, res) => {
+      const u = requireWeb(req, res)
+      if (!u) return
+      if (req.query.method === 'code') return void res.type('html').send(telegramPage('phone'))
+      let s = telegram.startQrLogin(u.id)
+      for (let i = 0; i < 30 && !s.url && s.state === 'waiting'; i++) {
+        await new Promise((r) => setTimeout(r, 200))
+        s = telegram.qrStatus(u.id) ?? s
+      }
+      if (!s.url) return void res.type('html').send(telegramPage('phone', s.error ?? 'Telegram didn’t answer. Use a login code instead, or try again.'))
+      res.type('html').send(telegramQrPage(await qrImage(s.url), s.url))
+    }),
+  )
+
+  app.get(
+    '/connect/telegram/qr/status',
+    wrap(async (req, res) => {
+      const u = webUser(req)
+      if (!u) return void res.status(401).json({ state: 'error', error: 'Signed out. Pair again.' })
+      const s = telegram.qrStatus(u.id)
+      if (!s) return void res.json({ state: 'error', error: 'Login expired. Reload the page.' })
+      if (s.state === 'done') {
+        const session = telegram.takeQrSession(u.id)
+        if (session) {
+          u.telegramSession = session
+          save(u)
+        }
+        return void res.json({ state: 'done' })
+      }
+      res.json({ state: s.state, error: s.error, hint: s.hint, url: s.url, qr: s.url ? await qrImage(s.url) : undefined })
+    }),
+  )
+
+  app.post('/connect/telegram/qr/password', (req, res) => {
+    const u = requireWeb(req, res)
+    if (!u) return
+    telegram.giveQrPassword(u.id, String(req.body.password ?? ''))
+    res.redirect(303, '/connect/telegram/qr/wait')
   })
+
+  app.get(
+    '/connect/telegram/qr/wait',
+    wrap(async (req, res) => {
+      const u = requireWeb(req, res)
+      if (!u) return
+      const s = telegram.qrStatus(u.id)
+      res.type('html').send(telegramQrPage(s?.url ? await qrImage(s.url) : '', s?.url ?? '#'))
+    }),
+  )
 
   app.post(
     '/connect/telegram/start',

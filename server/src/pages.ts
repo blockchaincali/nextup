@@ -208,6 +208,51 @@ ${error ? `<p class="err">${esc(error)}</p>` : ''}
   )
 }
 
+/** QR login: scan from another device, or open the tg:// link on this phone. Polls until done. */
+export function telegramQrPage(qrDataUrl: string, link: string): string {
+  return page(
+    'Telegram',
+    `<h1>Connect Telegram</h1>
+<p class="muted">No code needed. Telegram links Next Up like a new device.</p>
+<div class="card" id="qr-card">
+  <p><strong>On this phone?</strong> Tap below, then confirm in Telegram.</p>
+  <p><a class="btn" id="open" href="${esc(link)}">Open in Telegram</a></p>
+  <p class="muted" style="margin-top:18px"><strong>On a computer?</strong> In Telegram on your phone, go to <strong>Settings → Devices → Scan QR</strong> (Link Desktop Device) and scan:</p>
+  <p><img id="qr" src="${esc(qrDataUrl)}" alt="Telegram login QR code" width="240" height="240" style="background:#fff;border-radius:12px;padding:10px"></p>
+  <p class="muted" id="status">Waiting for Telegram…</p>
+</div>
+<form method="post" action="/connect/telegram/qr/password" id="pw" hidden>
+  <label for="password">Your Telegram two-step verification password</label>
+  <input id="password" name="password" type="password" autocomplete="current-password">
+  <p class="muted" id="hint"></p>
+  <p><button type="submit">Continue</button></p>
+</form>
+<p><a href="/connect/telegram?method=code">Use a login code instead</a> · <a href="/connect">Back</a></p>
+<script>
+(() => {
+  const status = document.getElementById('status'), qr = document.getElementById('qr'), open = document.getElementById('open')
+  let lastUrl = ''
+  const tick = async () => {
+    try {
+      const s = await fetch('/connect/telegram/qr/status', { credentials: 'same-origin' }).then((r) => r.json())
+      if (s.state === 'done') { location.href = '/connect'; return }
+      if (s.state === 'error') { status.textContent = s.error || 'Something went wrong.'; status.className = 'err'; return }
+      if (s.state === 'password') {
+        document.getElementById('qr-card').hidden = true
+        document.getElementById('pw').hidden = false
+        document.getElementById('hint').textContent = s.error || (s.hint ? 'Hint: ' + s.hint : '')
+        return
+      }
+      if (s.url && s.url !== lastUrl) { lastUrl = s.url; open.href = s.url; qr.src = s.qr }
+    } catch {}
+    setTimeout(tick, 2000)
+  }
+  tick()
+})()
+</script>`,
+  )
+}
+
 export function privacyPage(): string {
   return page(
     'Privacy',

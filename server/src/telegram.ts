@@ -109,6 +109,86 @@ export async function finishLogin(userId: string, code: string, password?: strin
   return session
 }
 
+// ── QR login (scan with Telegram → Settings → Devices → Scan QR) ──
+// More reliable than codes: Telegram often withholds login codes from third-party apps.
+
+export interface QrLogin {
+  state: 'waiting' | 'password' | 'done' | 'error'
+  url?: string // tg://login?token=…
+  expiresAt?: number
+  session?: string
+  error?: string
+  hint?: string
+}
+
+const qrLogins = new Map<string, { status: QrLogin; client: TelegramClient; givePassword?: (p: string) => void; startedAt: number }>()
+
+export function qrStatus(userId: string): QrLogin | undefined {
+  return qrLogins.get(userId)?.status
+}
+
+/** Starts (or keeps) a QR login for this user. Poll qrStatus until done. */
+export function startQrLogin(userId: string): QrLogin {
+  const existing = qrLogins.get(userId)
+  if (existing && existing.status.state !== 'error' && Date.now() - existing.startedAt < 5 * 60_000) return existing.status
+  existing?.client.disconnect().catch(() => {})
+  const client = newClient()
+  const entry = { status: { state: 'waiting' } as QrLogin, client, startedAt: Date.now(), givePassword: undefined as ((p: string) => void) | undefined }
+  qrLogins.set(userId, entry)
+  void (async () => {
+    try {
+      await client.connect()
+      await client.signInUserWithQrCode(
+        { apiId: config.telegram.apiId, apiHash: config.telegram.apiHash },
+        {
+          qrCode: async ({ token, expires }) => {
+            entry.status = { state: 'waiting', url: `tg://login?token=${token.toString('base64url')}`, expiresAt: expires * 1000 }
+          },
+          password: (hint) =>
+            new Promise<string>((resolve) => {
+              entry.status = { state: 'password', hint }
+              entry.givePassword = resolve
+            }),
+          onError: async (err) => {
+            const raw = (err as { errorMessage?: string }).errorMessage ?? err.message
+            console.error('[telegram] qr login error:', raw)
+            if (/PASSWORD_HASH_INVALID/.test(raw)) {
+              entry.status = { state: 'password', error: 'That password was wrong. Try again.' }
+              return false
+            }
+            entry.status = { state: 'error', error: friendly(raw) }
+            return true
+          },
+        },
+      )
+      const session = (client.session as StringSession).save()
+      clients.set(userId, client)
+      entry.status = { state: 'done', session }
+      console.log('[telegram] qr login complete')
+    } catch (e) {
+      if (entry.status.state !== 'error') entry.status = { state: 'error', error: friendly((e as Error).message) }
+    }
+  })()
+  return entry.status
+}
+
+export function giveQrPassword(userId: string, password: string): boolean {
+  const e = qrLogins.get(userId)
+  if (!e?.givePassword) return false
+  e.status = { state: 'waiting' }
+  e.givePassword(password)
+  e.givePassword = undefined
+  return true
+}
+
+/** Hands over a finished QR session once, then forgets it. */
+export function takeQrSession(userId: string): string | undefined {
+  const e = qrLogins.get(userId)
+  if (e?.status.state !== 'done') return undefined
+  qrLogins.delete(userId)
+  return e.status.session
+}
+
 export async function logout(user: User) {
   const client = clients.get(user.id)
   clients.delete(user.id)
